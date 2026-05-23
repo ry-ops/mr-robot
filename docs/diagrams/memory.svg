@@ -1,0 +1,164 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1400 700" width="100%" preserveAspectRatio="xMidYMid meet" role="img" aria-labelledby="t d">
+  <title id="t">Mr. Robot — the memory layer</title>
+  <desc id="d">A single adapter at server/memory.py routes calls to aiana (SQLite + FTS5), Qdrant (semantic), and Redis (cache). Reads check Redis first, then fan FTS5 + Qdrant and merge via reciprocal rank fusion. Writes invalidate the cache via a generation counter.</desc>
+
+  <defs>
+    <linearGradient id="bg3" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#06060e"/>
+      <stop offset="100%" stop-color="#05050a"/>
+    </linearGradient>
+    <radialGradient id="hub" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#9966ff" stop-opacity="0.9"/>
+      <stop offset="100%" stop-color="#5530aa" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="g3" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="2" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="g3soft" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="6" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <pattern id="scan3" width="3" height="3" patternUnits="userSpaceOnUse">
+      <rect width="3" height="1.2" fill="#9966ff" fill-opacity="0.025"/>
+    </pattern>
+
+    <!-- flow paths: caller (top) -> adapter (middle) -> backends (bottom) -->
+    <path id="c2a"  d="M 700 195 L 700 320"/>
+    <path id="a2r"  d="M 640 410 C 540 480 380 520 260 540"/>
+    <path id="a2q"  d="M 760 410 C 860 480 1020 520 1140 540"/>
+    <path id="a2c"  d="M 700 410 L 700 540"/>
+    <!-- read fan-in (reverse direction visual, but separate paths) -->
+    <path id="r2a"  d="M 260 530 C 380 510 540 470 640 400"/>
+    <path id="q2a"  d="M 1140 530 C 1020 510 860 470 760 400"/>
+    <path id="ca2a" d="M 700 530 L 700 400"/>
+    <!-- cache fast lane -->
+    <path id="fast" d="M 700 540 C 800 470 800 350 760 320"/>
+  </defs>
+
+  <rect width="1400" height="700" fill="url(#bg3)"/>
+  <rect width="1400" height="700" fill="url(#scan3)"/>
+
+  <!-- TITLE -->
+  <g font-family="ui-monospace, 'JetBrains Mono', monospace">
+    <text x="700" y="44" text-anchor="middle" font-size="26" font-weight="700" fill="#9966ff" letter-spacing="6" filter="url(#g3soft)">THE MEMORY</text>
+    <text x="700" y="68" text-anchor="middle" font-size="11" fill="#bba0ff" letter-spacing="3" opacity="0.75">ADR-0014 · one adapter · three backends · feature-detected</text>
+  </g>
+
+  <!-- CALLERS at the top -->
+  <g font-family="ui-monospace, monospace" font-size="11">
+    <g transform="translate(540 140)">
+      <rect x="-130" y="-26" width="260" height="52" rx="6" fill="#0a0a14" stroke="#ff2a45" stroke-width="1.2" filter="url(#g3)"/>
+      <text text-anchor="middle" y="-4" fill="#ff7090" letter-spacing="2">ORCHESTRATOR</text>
+      <text text-anchor="middle" y="14" fill="#a0a0c0" font-size="9">triage · reinforce/repurpose · summary</text>
+    </g>
+    <g transform="translate(860 140)">
+      <rect x="-130" y="-26" width="260" height="52" rx="6" fill="#0a0a14" stroke="#39ff14" stroke-width="1.2" filter="url(#g3)"/>
+      <text text-anchor="middle" y="-4" fill="#7fff8f" letter-spacing="2">HAT ROBOTS</text>
+      <text text-anchor="middle" y="14" fill="#a0a0c0" font-size="9">task pickup · task outcome</text>
+    </g>
+  </g>
+
+  <!-- THE ADAPTER (hub) -->
+  <g transform="translate(700 360)">
+    <circle r="80" fill="url(#hub)">
+      <animate attributeName="r" values="76;90;76" dur="2.4s" repeatCount="indefinite"/>
+    </circle>
+    <rect x="-160" y="-32" width="320" height="64" rx="8" fill="#0a0a14" stroke="#9966ff" stroke-width="1.4" filter="url(#g3)"/>
+    <text text-anchor="middle" y="-6" font-family="ui-monospace, monospace" font-size="13" fill="#bba0ff" font-weight="700" letter-spacing="2">server/memory.py</text>
+    <text text-anchor="middle" y="14" font-family="ui-monospace, monospace" font-size="10" fill="#9088bb" letter-spacing="1">recall · record · cache · fuse</text>
+  </g>
+
+  <!-- BACKENDS row -->
+  <g font-family="ui-monospace, monospace" font-size="11">
+    <!-- aiana / SQLite-FTS5 -->
+    <g transform="translate(260 580)">
+      <rect x="-130" y="-44" width="260" height="88" rx="6" fill="#0a0a14" stroke="#7fff8f" stroke-width="1.2" filter="url(#g3)"/>
+      <text text-anchor="middle" y="-22" fill="#7fff8f" font-weight="700" letter-spacing="2">aiana</text>
+      <text text-anchor="middle" y="-4" fill="#a0c0a8" font-size="10">SQLite · FTS5</text>
+      <text text-anchor="middle" y="14" fill="#5a6280" font-size="9">~/.aiana/conversations.db</text>
+      <text text-anchor="middle" y="30" fill="#5a6280" font-size="9">durable · full-text</text>
+    </g>
+    <!-- Qdrant -->
+    <g transform="translate(1140 580)">
+      <rect x="-130" y="-44" width="260" height="88" rx="6" fill="#0a0a14" stroke="#ff2a45" stroke-width="1.2" filter="url(#g3)"/>
+      <text text-anchor="middle" y="-22" fill="#ff7090" font-weight="700" letter-spacing="2">Qdrant</text>
+      <text text-anchor="middle" y="-4" fill="#d0a0a8" font-size="10">vectors · 384-d · cosine</text>
+      <text text-anchor="middle" y="14" fill="#5a6280" font-size="9">all-MiniLM-L6-v2</text>
+      <text text-anchor="middle" y="30" fill="#5a6280" font-size="9">semantic recall</text>
+      <!-- embedding bars -->
+      <g>
+        <rect x="80" y="-30" width="3" height="10" fill="#ff2a45"><animate attributeName="height" values="4;14;6;10;4" dur="2s" repeatCount="indefinite"/></rect>
+        <rect x="86" y="-30" width="3" height="10" fill="#ff2a45"><animate attributeName="height" values="10;4;14;6;10" dur="2s" repeatCount="indefinite"/></rect>
+        <rect x="92" y="-30" width="3" height="10" fill="#ff2a45"><animate attributeName="height" values="6;10;4;14;6" dur="2s" repeatCount="indefinite"/></rect>
+        <rect x="98" y="-30" width="3" height="10" fill="#ff2a45"><animate attributeName="height" values="14;6;10;4;14" dur="2s" repeatCount="indefinite"/></rect>
+      </g>
+    </g>
+    <!-- Redis -->
+    <g transform="translate(700 600)">
+      <rect x="-130" y="-44" width="260" height="88" rx="6" fill="#0a0a14" stroke="#f8d35a" stroke-width="1.2" filter="url(#g3)"/>
+      <text text-anchor="middle" y="-22" fill="#f8d35a" font-weight="700" letter-spacing="2">Redis</text>
+      <text text-anchor="middle" y="-4" fill="#d4c08a" font-size="10">recall cache · TTL 600s</text>
+      <text text-anchor="middle" y="14" fill="#5a6280" font-size="9">sha256(gen | q | k | kind)</text>
+      <text text-anchor="middle" y="30" fill="#5a6280" font-size="9">INCR on write → coarse invalidate</text>
+    </g>
+  </g>
+
+  <!-- write/read flow lines (faint guides) -->
+  <g stroke-width="1" fill="none" opacity="0.25">
+    <use href="#c2a"  stroke="#9966ff"/>
+    <use href="#a2r"  stroke="#7fff8f"/>
+    <use href="#a2q"  stroke="#ff7090"/>
+    <use href="#a2c"  stroke="#f8d35a"/>
+  </g>
+
+  <!-- WRITE particles (callers → adapter → all backends) -->
+  <g>
+    <circle r="4" fill="#9966ff" filter="url(#g3soft)">
+      <animateMotion dur="2s" repeatCount="indefinite"><mpath href="#c2a"/></animateMotion>
+    </circle>
+    <circle r="4" fill="#7fff8f" filter="url(#g3soft)">
+      <animateMotion dur="2.2s" repeatCount="indefinite" begin="-0.4s"><mpath href="#a2r"/></animateMotion>
+    </circle>
+    <circle r="4" fill="#ff7090" filter="url(#g3soft)">
+      <animateMotion dur="2.2s" repeatCount="indefinite" begin="-0.4s"><mpath href="#a2q"/></animateMotion>
+    </circle>
+    <circle r="4" fill="#f8d35a" filter="url(#g3soft)">
+      <animateMotion dur="2.2s" repeatCount="indefinite" begin="-0.4s"><mpath href="#a2c"/></animateMotion>
+    </circle>
+  </g>
+
+  <!-- READ particles (backends → adapter → caller via RRF fuse) -->
+  <g>
+    <circle r="3.2" fill="#7fff8f">
+      <animateMotion dur="3s" repeatCount="indefinite" begin="-1s"><mpath href="#r2a"/></animateMotion>
+      <animate attributeName="opacity" values="0;1;1;0" dur="3s" begin="-1s" repeatCount="indefinite"/>
+    </circle>
+    <circle r="3.2" fill="#ff7090">
+      <animateMotion dur="3s" repeatCount="indefinite" begin="-1.6s"><mpath href="#q2a"/></animateMotion>
+      <animate attributeName="opacity" values="0;1;1;0" dur="3s" begin="-1.6s" repeatCount="indefinite"/>
+    </circle>
+  </g>
+
+  <!-- cache fast lane (visual cue: warm reads short-circuit at the adapter) -->
+  <g>
+    <path d="M 700 540 C 800 470 800 350 760 320" stroke="#f8d35a" stroke-width="1.2" stroke-dasharray="3 4" fill="none" opacity="0.55">
+      <animate attributeName="stroke-dashoffset" values="0;-21" dur="1s" repeatCount="indefinite"/>
+    </path>
+    <text x="820" y="430" font-family="ui-monospace, monospace" font-size="10" fill="#f8d35a" opacity="0.85">cache hit ≈ 0.1 ms</text>
+    <text x="820" y="446" font-family="ui-monospace, monospace" font-size="10" fill="#f8d35a" opacity="0.55">cold path ≈ 17 ms</text>
+  </g>
+
+  <!-- side labels -->
+  <g font-family="ui-monospace, monospace" font-size="11" letter-spacing="2">
+    <text x="100" y="340" fill="#7fff8f" opacity="0.7">// writes fan out</text>
+    <text x="100" y="358" fill="#7fff8f" opacity="0.5" font-size="9">aiana write · qdrant upsert · INCR gen</text>
+    <text x="1300" y="340" text-anchor="end" fill="#ff7090" opacity="0.7">reads fan in //</text>
+    <text x="1300" y="358" text-anchor="end" fill="#ff7090" opacity="0.5" font-size="9">FTS5 + Qdrant fused (RRF k=60)</text>
+  </g>
+
+  <!-- footer -->
+  <g font-family="ui-monospace, monospace" font-size="9" fill="#5a6280" opacity="0.7">
+    <text x="700" y="695" text-anchor="middle" letter-spacing="2">judgment compounds across boxes.</text>
+  </g>
+</svg>

@@ -1,0 +1,176 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1400 700" width="100%" preserveAspectRatio="xMidYMid meet" role="img" aria-labelledby="t d">
+  <title id="t">Mr. Robot — the orchestrator control loop</title>
+  <desc id="d">A heartbeat ticks. The brain reads the arcade, decides per-robot (leave, reinforce, repurpose, or assign), robots work, findings post, the playbook unlocks new tasks, and the loop repeats.</desc>
+
+  <defs>
+    <linearGradient id="bg2" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#070710"/>
+      <stop offset="100%" stop-color="#05050a"/>
+    </linearGradient>
+    <radialGradient id="core" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#ff345a" stop-opacity="0.85"/>
+      <stop offset="100%" stop-color="#ff2040" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="g2" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="2" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="g2soft" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="5" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <pattern id="scan2" width="3" height="3" patternUnits="userSpaceOnUse">
+      <rect width="3" height="1.2" fill="#39ff14" fill-opacity="0.02"/>
+    </pattern>
+    <!-- The control-loop ring as a single closed path the dot follows -->
+    <path id="ring" d="M 700 140 A 240 240 0 1 1 699.999 140" fill="none"/>
+  </defs>
+
+  <rect width="1400" height="700" fill="url(#bg2)"/>
+  <rect width="1400" height="700" fill="url(#scan2)"/>
+
+  <g font-family="ui-monospace, 'JetBrains Mono', monospace">
+    <text x="700" y="50" text-anchor="middle" font-size="28" font-weight="700" fill="#ff2a45" letter-spacing="6" filter="url(#g2soft)">THE CONTROL LOOP</text>
+    <text x="700" y="76" text-anchor="middle" font-size="11" fill="#7fff8f" letter-spacing="3" opacity="0.7">ADR-0013 · the orchestrator</text>
+  </g>
+
+  <!-- ring: dashed faint guide -->
+  <circle cx="700" cy="380" r="240" fill="none" stroke="#39ff14" stroke-width="1" stroke-dasharray="2 6" opacity="0.25"/>
+  <circle cx="700" cy="380" r="240" fill="none" stroke="#39ff14" stroke-width="1.2" opacity="0.55">
+    <animate attributeName="stroke-dasharray" values="0 1508; 754 754; 1508 0" dur="6s" repeatCount="indefinite"/>
+  </circle>
+
+  <!-- center: heartbeat -->
+  <g transform="translate(700 380)">
+    <circle r="70" fill="url(#core)">
+      <animate attributeName="r" values="60;82;60" dur="1.6s" repeatCount="indefinite"/>
+    </circle>
+    <circle r="34" fill="#0a0a14" stroke="#ff2a45" stroke-width="1.2" filter="url(#g2)"/>
+    <!-- ECG line inside core -->
+    <path d="M -22 0 L -10 0 L -6 -12 L 0 14 L 6 -10 L 10 0 L 22 0"
+          stroke="#39ff14" stroke-width="1.6" fill="none" filter="url(#g2)"/>
+    <text y="58" text-anchor="middle" font-family="ui-monospace, monospace" font-size="11" fill="#ff7090" letter-spacing="3">HEARTBEAT</text>
+  </g>
+
+  <!-- stations on the ring -->
+  <g font-family="ui-monospace, monospace" font-size="11" fill="#7fff8f">
+    <!-- 12: TICK -->
+    <g transform="translate(700 140)">
+      <circle r="22" fill="#0a0a14" stroke="#39ff14" stroke-width="1.4" filter="url(#g2)">
+        <animate attributeName="r" values="22;28;22" dur="6s" begin="0s" repeatCount="indefinite"/>
+        <animate attributeName="stroke-width" values="1.2;2.4;1.2" dur="6s" begin="0s" repeatCount="indefinite"/>
+      </circle>
+      <text text-anchor="middle" y="-32" fill="#7fff8f" letter-spacing="2">TICK</text>
+      <text text-anchor="middle" y="4" fill="#39ff14" font-size="9">1</text>
+    </g>
+    <!-- 1:30: READ ARCADE -->
+    <g transform="translate(870 240)">
+      <circle r="22" fill="#0a0a14" stroke="#39ff14" stroke-width="1.4" filter="url(#g2)">
+        <animate attributeName="r" values="22;28;22" dur="6s" begin="0.75s" repeatCount="indefinite"/>
+        <animate attributeName="stroke-width" values="1.2;2.4;1.2" dur="6s" begin="0.75s" repeatCount="indefinite"/>
+      </circle>
+      <text text-anchor="middle" y="-32" fill="#7fff8f" letter-spacing="2">READ ARCADE</text>
+      <text text-anchor="middle" y="4" fill="#39ff14" font-size="9">2</text>
+    </g>
+    <!-- 3: BRAIN ASSESS -->
+    <g transform="translate(940 380)">
+      <circle r="22" fill="#0a0a14" stroke="#f8d35a" stroke-width="1.4" filter="url(#g2)">
+        <animate attributeName="r" values="22;28;22" dur="6s" begin="1.5s" repeatCount="indefinite"/>
+        <animate attributeName="stroke-width" values="1.2;2.4;1.2" dur="6s" begin="1.5s" repeatCount="indefinite"/>
+      </circle>
+      <text text-anchor="start" x="32" y="-2" fill="#f8d35a" letter-spacing="2">BRAIN</text>
+      <text text-anchor="start" x="32" y="14" fill="#f8d35a" letter-spacing="2">ASSESS</text>
+      <text text-anchor="middle" y="4" fill="#f8d35a" font-size="9">3</text>
+    </g>
+    <!-- 4:30: DECIDE -->
+    <g transform="translate(870 520)">
+      <circle r="22" fill="#0a0a14" stroke="#ff2a45" stroke-width="1.4" filter="url(#g2)">
+        <animate attributeName="r" values="22;28;22" dur="6s" begin="2.25s" repeatCount="indefinite"/>
+        <animate attributeName="stroke-width" values="1.2;2.4;1.2" dur="6s" begin="2.25s" repeatCount="indefinite"/>
+      </circle>
+      <text text-anchor="middle" y="50" fill="#ff7090" letter-spacing="2">DECIDE</text>
+      <text text-anchor="middle" y="4" fill="#ff2a45" font-size="9">4</text>
+      <!-- branches -->
+      <g font-size="9" fill="#ff7090" opacity="0.85">
+        <text x="-100" y="35" text-anchor="end">leave ↳</text>
+        <text x="-100" y="48" text-anchor="end">reinforce ↳</text>
+        <text x="-100" y="61" text-anchor="end">repurpose ↳</text>
+        <text x="-100" y="74" text-anchor="end">assign ↳</text>
+      </g>
+    </g>
+    <!-- 6: ROBOTS WORK -->
+    <g transform="translate(700 620)">
+      <circle r="22" fill="#0a0a14" stroke="#39ff14" stroke-width="1.4" filter="url(#g2)">
+        <animate attributeName="r" values="22;28;22" dur="6s" begin="3s" repeatCount="indefinite"/>
+        <animate attributeName="stroke-width" values="1.2;2.4;1.2" dur="6s" begin="3s" repeatCount="indefinite"/>
+      </circle>
+      <text text-anchor="middle" y="42" fill="#7fff8f" letter-spacing="2">ROBOTS WORK</text>
+      <text text-anchor="middle" y="4" fill="#39ff14" font-size="9">5</text>
+      <!-- tiny worker dots -->
+      <g fill="#39ff14">
+        <circle cx="-12" cy="34" r="2"><animate attributeName="cy" values="34;30;34" dur="0.6s" repeatCount="indefinite"/></circle>
+        <circle cx="-4"  cy="34" r="2"><animate attributeName="cy" values="34;30;34" dur="0.6s" begin="-0.2s" repeatCount="indefinite"/></circle>
+        <circle cx="4"   cy="34" r="2"><animate attributeName="cy" values="34;30;34" dur="0.6s" begin="-0.4s" repeatCount="indefinite"/></circle>
+        <circle cx="12"  cy="34" r="2"><animate attributeName="cy" values="34;30;34" dur="0.6s" begin="-0.6s" repeatCount="indefinite"/></circle>
+      </g>
+    </g>
+    <!-- 7:30: POST FINDING -->
+    <g transform="translate(530 520)">
+      <circle r="22" fill="#0a0a14" stroke="#39ff14" stroke-width="1.4" filter="url(#g2)">
+        <animate attributeName="r" values="22;28;22" dur="6s" begin="3.75s" repeatCount="indefinite"/>
+        <animate attributeName="stroke-width" values="1.2;2.4;1.2" dur="6s" begin="3.75s" repeatCount="indefinite"/>
+      </circle>
+      <text text-anchor="middle" y="50" fill="#7fff8f" letter-spacing="2">POST FINDING</text>
+      <text text-anchor="middle" y="4" fill="#39ff14" font-size="9">6</text>
+    </g>
+    <!-- 9: PLAYBOOK -->
+    <g transform="translate(460 380)">
+      <circle r="22" fill="#0a0a14" stroke="#f8d35a" stroke-width="1.4" filter="url(#g2)">
+        <animate attributeName="r" values="22;28;22" dur="6s" begin="4.5s" repeatCount="indefinite"/>
+        <animate attributeName="stroke-width" values="1.2;2.4;1.2" dur="6s" begin="4.5s" repeatCount="indefinite"/>
+      </circle>
+      <text text-anchor="end" x="-32" y="-2" fill="#f8d35a" letter-spacing="2">PLAYBOOK</text>
+      <text text-anchor="end" x="-32" y="14" fill="#f8d35a" letter-spacing="2">UNLOCKS</text>
+      <text text-anchor="middle" y="4" fill="#f8d35a" font-size="9">7</text>
+    </g>
+    <!-- 10:30: ENQUEUE TASKS -->
+    <g transform="translate(530 240)">
+      <circle r="22" fill="#0a0a14" stroke="#39ff14" stroke-width="1.4" filter="url(#g2)">
+        <animate attributeName="r" values="22;28;22" dur="6s" begin="5.25s" repeatCount="indefinite"/>
+        <animate attributeName="stroke-width" values="1.2;2.4;1.2" dur="6s" begin="5.25s" repeatCount="indefinite"/>
+      </circle>
+      <text text-anchor="middle" y="-32" fill="#7fff8f" letter-spacing="2">ENQUEUE TASKS</text>
+      <text text-anchor="middle" y="4" fill="#39ff14" font-size="9">8</text>
+    </g>
+  </g>
+
+  <!-- the traveling control token -->
+  <g>
+    <circle r="9" fill="#39ff14" filter="url(#g2soft)">
+      <animateMotion dur="6s" repeatCount="indefinite">
+        <mpath href="#ring"/>
+      </animateMotion>
+    </circle>
+    <circle r="5" fill="#ffffff">
+      <animateMotion dur="6s" repeatCount="indefinite">
+        <mpath href="#ring"/>
+      </animateMotion>
+    </circle>
+  </g>
+
+  <!-- side annotations -->
+  <g font-family="ui-monospace, monospace" font-size="10" fill="#5a6280" letter-spacing="2">
+    <text x="50" y="180">read.</text>
+    <text x="50" y="200">decide.</text>
+    <text x="50" y="220">repeat.</text>
+
+    <text x="1350" y="580" text-anchor="end">// emergent: assist vs gang-up</text>
+    <text x="1350" y="600" text-anchor="end">// "ready" → robots pull on tick</text>
+    <text x="1350" y="620" text-anchor="end">// blocker → resolved_by re-routes</text>
+  </g>
+
+  <!-- footer -->
+  <g font-family="ui-monospace, monospace" font-size="9" fill="#5a6280" opacity="0.7">
+    <text x="700" y="695" text-anchor="middle" letter-spacing="2">tick after tick after tick.</text>
+  </g>
+</svg>

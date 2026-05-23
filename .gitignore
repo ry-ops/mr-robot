@@ -1,0 +1,49 @@
+# --- Python ---------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# --- Runtime data — never commit -----------------------------------------
+# Per-engagement workspaces (arcade.db lives here at run time)
+engagements/*
+!engagements/.gitkeep
+# Local memory backends (when running outside containers)
+redis-data/
+qdrant_storage/
+
+# --- Local config / per-user state ---------------------------------------
+.claude/settings.local.json
+.env
+.env.*
+!.env.example
+
+# --- Credentials, in case they ever land here ----------------------------
+*.pem
+*.key
+id_rsa
+id_rsa.pub
+credentials*
+secrets*
+
+# --- Obsidian vault local state (the content stays; the cache doesn't) ---
+vault/**/.obsidian/workspace.json
+vault/**/.obsidian/workspace-mobile.json
+vault/**/.obsidian/cache
+vault/**/.obsidian/.cache
+
+# --- Editor / OS noise ---------------------------------------------------
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# --- Logs ----------------------------------------------------------------
+*.log
