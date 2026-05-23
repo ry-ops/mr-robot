@@ -11,9 +11,9 @@ date: 2026-05-23
 
 ## Status
 
-Proposed. The ADR proposes two federation modes (**cloud** and **event**)
-and an upcoming sibling MCP server (**`htb-api`**). Each part promotes
-independently against its own criterion:
+Proposed. The ADR proposes three federation modes (**cloud**, **event**,
+and **mcp**) and an upcoming sibling MCP server (**`htb-api`**). Each part
+promotes independently against its own criterion:
 
 - **Cloud mode → Accepted** when `server/memory.py` carries a second Qdrant
   client pointed at Qdrant Cloud, the PII-scrubbing function gates the
@@ -27,11 +27,19 @@ independently against its own criterion:
   flow, the host's local Qdrant serves participant writes/reads under that
   key for the session's TTL, and a write→read round trip between two real
   instances over a third host instance is verified.
-- **`doctor` command → required for both** — must report backend
-  connectivity (MCP, Redis, local Qdrant, aiana, cloud-mode Qdrant Cloud
-  *and* the event-mode host endpoint when a session is joined) and
-  reliably distinguish "the co-op is live" from "the co-op silently
-  isn't".
+- **MCP mode → Accepted** when `server/memory.py` can route its cloud-tier
+  Qdrant *and* Redis I/O through MCP servers (Qdrant via
+  `mcp-server-qdrant`, Redis via Redis Inc.'s `mcp-redis`) selected by
+  `MR_ROBOT_COOP_TRANSPORT=mcp`, both servers are registered at user scope
+  alongside `mr-robot`, the scrubber gates the same write paths regardless
+  of transport, and a write→read round trip between two real instances
+  over MCP-routed Redis Cloud + Qdrant Cloud is verified end-to-end.
+- **`doctor` command → required for all three** — must report backend
+  connectivity (MCP, Redis, local Qdrant, aiana, cloud-mode Qdrant Cloud,
+  the event-mode host endpoint when a session is joined, *and* the
+  MCP-mode `mcp-server-qdrant` + `mcp-redis` servers when that transport
+  is selected) and reliably distinguish "the co-op is live" from "the
+  co-op silently isn't".
 - **`htb-api` MCP server** — named here but graduates via a future ADR;
   not gating co-op promotion.
 
@@ -64,16 +72,18 @@ solved-only.
 
 ## Decision
 
-### Two federation modes: cloud and event
+### Three federation modes: cloud, event, and mcp
 
-The co-op proposes two complementary federation models. Both write through
-the same scrubber and `Recollection` shape; they differ in *where* the
-shared vector store lives and *who* it is shared with.
+The co-op proposes three complementary federation models. All write
+through the same scrubber and `Recollection` shape; they differ in *where*
+the shared vector store lives, *who* it is shared with, and *how* the
+adapter reaches it on the wire.
 
 **Cloud mode.** Async, global, always-on. Opted-in instances write solved
 progress to a shared Qdrant Cloud collection and read it back at the
 campaign-tier read sites. Best for cross-time learning — "what worked on
-Lame last year, by anyone."
+Lame last year, by anyone." Transport is the Qdrant Python client
+directly against Qdrant Cloud's HTTP/gRPC endpoint.
 
 **Event mode** *(planned)*. Per-event, peer-hosted, time-bounded. One
 operator starts a session and becomes its **host**; their *local* Qdrant
@@ -84,10 +94,21 @@ event, every participant's `memory_share_*` writes and
 event ends, each participant's local memory retains what it absorbed;
 the host's local Qdrant accretes the full event corpus.
 
-Both modes can be active at once on the same instance: writes fan out to
-each configured backend (cloud + event-host), reads merge results with
-`source ∈ {self, coop:cloud, coop:event}` so the brain and human readers
-can tell them apart.
+**MCP mode** *(planned)*. Same destinations as cloud mode (managed
+Qdrant, optionally managed Redis), but the transport is an MCP server in
+front of each backend rather than a Python client. The adapter speaks the
+same `memory_*` shape; the wire underneath becomes
+`mcp-server-qdrant` (for the co-op collection on Qdrant Cloud) and
+`mcp-redis` (for the recall cache on Redis Cloud). This keeps every
+remote dependency on the *same* protocol Mr. Robot itself already speaks
+— a uniform pattern of "external service via MCP" — and pushes
+credential handling out of `server/memory.py` and into Claude Code's MCP
+config, where the rest of the project's secrets already live.
+
+All three modes can be active at once on the same instance: writes fan
+out to each configured backend (cloud + event-host + MCP), reads merge
+results with `source ∈ {self, coop:cloud, coop:event, coop:mcp}` so the
+brain and human readers can tell them apart.
 
 Why event mode is wanted:
 
@@ -118,6 +139,113 @@ Connection from `MR_ROBOT_COOP_QDRANT_URL`,
 A separate hosted instance was considered (Pinecone, Weaviate Cloud, a custom
 HTTP service). Rejected: it would split the adapter, double the embedding
 maintenance, and add a schema we'd have to keep in sync with the local one.
+
+### MCP-routed cloud connectivity (mcp mode)
+
+Cloud mode reaches Qdrant Cloud through the Qdrant Python client and (in
+ADR-0014) reaches local Redis through `redis-py`. Both clients require
+their credentials to live in `MR_ROBOT_*` environment variables that
+`server/memory.py` reads at startup. That works, but it puts the project
+in the awkward position of speaking MCP outward (Mr. Robot itself is an
+MCP server) while speaking two unrelated client protocols inward, with
+two more credentials Claude Code never sees.
+
+This ADR proposes a third federation mode where the cloud-tier Qdrant
+*and* the recall-cache Redis are reached through their official MCP
+servers instead:
+
+| Backend | MCP server | Hosted at | Credential lives in |
+|---------|-----------|-----------|---------------------|
+| Qdrant (co-op collection) | `mcp-server-qdrant` (Qdrant Inc., upstream) | Qdrant Cloud | Claude Code MCP config |
+| Redis (recall cache, optional cloud tier) | `mcp-redis` (Redis Inc., upstream) | Redis Cloud (or self-hosted) | Claude Code MCP config |
+
+Selection is opt-in via a new env knob:
+
+```
+MR_ROBOT_COOP_TRANSPORT=direct   # default — Python clients, as in cloud mode
+MR_ROBOT_COOP_TRANSPORT=mcp      # route co-op Qdrant + Redis I/O via MCP
+MR_ROBOT_COOP_TRANSPORT=both     # primary MCP, fall back to direct on MCP error
+```
+
+What the adapter does in MCP mode:
+
+- **Qdrant calls** (`upsert`, `search`, `delete`) become tool calls on
+  `mcp-server-qdrant` against the configured `mrrobot-coop` collection.
+  The embedding step is **still local** (`all-MiniLM-L6-v2`, 384-dim,
+  cosine) — `mcp-server-qdrant` accepts pre-computed vectors and the
+  project keeps a single source of truth for embeddings across cloud and
+  MCP modes.
+- **Redis calls** (`GET`, `SET`, `INCR mrrobot:memory:gen`) become tool
+  calls on `mcp-redis`. The generation-counter invalidation pattern from
+  ADR-0014 is unchanged — `mcp-redis` exposes `INCR` and arbitrary key
+  reads/writes, which is everything the cache needs.
+- **The scrubber still runs first.** Transport selection is below the
+  scrubber boundary; whatever leaves the scrubber is what the MCP server
+  sees, no exceptions.
+
+Why this is wanted:
+
+- **Uniform external-services pattern.** Mr. Robot already exposes itself
+  as an MCP server and already requires `claude mcp list` to show
+  `mr-robot` at user scope. Putting Qdrant and Redis on the same surface
+  means one mental model — "every external dependency is an MCP server"
+  — and one place to register them.
+- **Credentials out of process env.** Qdrant Cloud API keys and Redis
+  Cloud auth tokens move into Claude Code's MCP config (per-server
+  `env`), where they sit alongside any other secret an MCP server needs.
+  `server/memory.py` stops needing to read them at all.
+- **`doctor` already knows how to introspect MCP.** Its first row is
+  `claude mcp list` parsing; extending that to assert
+  `mcp-server-qdrant` ✓ and `mcp-redis` ✓ is cheaper than teaching it a
+  new health-check shape per backend.
+- **Lower setup friction for new operators.** A new contributor who
+  already followed `how-to-install.md` to register `mr-robot` adds two
+  more `claude mcp add` lines and is done — no Python virtualenv
+  juggling for `qdrant-client` or `redis-py` versions.
+- **Cloud-managed by default.** `mcp-redis` against Redis Cloud removes
+  the "is your local Redis daemon up?" failure mode (today the most
+  common cause of degraded recall on a fresh Kali). The cache stays a
+  cache; if Redis Cloud blips, the layer degrades to direct
+  FTS5/Qdrant exactly as it does today.
+
+Why it's gated behind an opt-in transport and not the default:
+
+- Adds a network hop per call. Cold recall in ADR-0014 measured ≈ 17 ms
+  cold / ≈ 0.1 ms cached; MCP-routed calls re-cross a process boundary
+  per request. Tolerable at heartbeat cadence, not yet measured in
+  practice — the `direct` default protects ADR-0014's accepted
+  performance envelope until we have numbers.
+- Adds two more MCP servers to the operator's `claude mcp list`. That
+  surface is small but real, and the project should not impose it on
+  someone who is happy with the local stack.
+- Two more upstream projects (`mcp-server-qdrant`, `mcp-redis`) join the
+  dependency footprint. Their release cadence and breaking-change
+  posture are now part of ours.
+
+What was considered and rejected:
+
+- *A single Mr. Robot-owned MCP server that proxies both backends.* Less
+  code on disk but more code we'd own and have to keep in lockstep with
+  upstream Qdrant / Redis MCP changes. Reusing the upstream servers
+  keeps the maintenance surface in the hands of the projects that ship
+  the backends.
+- *MCP mode as a replacement for cloud mode rather than a parallel
+  transport.* Rejected — direct clients are the lowest-friction path for
+  someone who already has a Qdrant Cloud cluster wired the ADR-0014 way,
+  and the two transports cost almost nothing to keep alongside each
+  other behind the same adapter seam.
+- *Routing the event-mode host's Qdrant through MCP too.* Out of scope
+  for v1 — the host's Qdrant is *local* to the host, so the MCP-mode
+  motivation (credentials, uniformity with cloud SaaS) doesn't apply.
+  Revisit if a host ever wants to expose its vault to participants via
+  MCP instead of the Qdrant wire protocol.
+
+Like cloud mode and event mode, MCP mode is **opt-in and degrades
+quietly**: with `MR_ROBOT_COOP_TRANSPORT=mcp` set but
+`mcp-server-qdrant` not registered, the adapter logs once at startup
+and falls back to direct Qdrant Cloud (if a URL/key are configured) or
+to memory-only (if not). The orchestrator does not halt; `doctor` is
+how the operator notices.
 
 ### The join key (event mode)
 
@@ -356,6 +484,8 @@ What it checks (v1):
 | aiana | `import aiana` succeeds in the same Python `mr_robot.py` uses | memory writes (ADR-0014) |
 | Co-op Qdrant Cloud | `GET /readyz` on `MR_ROBOT_COOP_QDRANT_URL` with the configured API key | co-op reads & shares (ADR-0015) |
 | Co-op opt-in | `MR_ROBOT_COOP_ENABLED` parsed and consistent with the URL/key being set | co-op reads & shares |
+| Co-op MCP — Qdrant | `claude mcp list` shows `mcp-server-qdrant` ✓ Connected, at user scope | co-op reads & shares when `MR_ROBOT_COOP_TRANSPORT ∈ {mcp, both}` |
+| Co-op MCP — Redis | `claude mcp list` shows `mcp-redis` ✓ Connected, at user scope | recall cache when `MR_ROBOT_COOP_TRANSPORT ∈ {mcp, both}` |
 
 Output is a status table — one row per backend — with one of three states:
 **OK** (green ✓), **Degraded** (yellow !) where the backend is missing but
@@ -424,6 +554,11 @@ does not promote to Accepted until `doctor` exists and reliably distinguishes
   re-examine if the brain's wall-time budget tightens.
 - Identity-by-handle is weak. A determined actor can claim someone else's
   handle on a fresh instance.
+- MCP mode adds two upstream MCP servers (`mcp-server-qdrant`, `mcp-redis`)
+  to the project's effective dependency surface. Their release cadence
+  and breaking-change posture become part of ours, and their auth model
+  (credentials in Claude Code's MCP `env`) becomes the place co-op
+  secrets live when that transport is selected.
 
 ## Open Questions
 
@@ -454,6 +589,28 @@ does not promote to Accepted until `doctor` exists and reliably distinguishes
 - Network model — does event mode require the host to expose a public
   endpoint (forwarded port, tunnel, Tailscale-style mesh), and how does
   that interact with operators on locked-down corporate networks?
+
+### MCP mode
+
+- Per-call overhead — what does the MCP hop actually cost on cold and
+  cached recall? The `direct` default stays the recommended path until
+  the number is measured against ADR-0014's ≈ 17 ms / ≈ 0.1 ms baseline.
+- Pre-computed-vector contract — `mcp-server-qdrant` is assumed to accept
+  pre-computed vectors so the embedding model stays canonical in
+  `server/memory.py`. Confirm against the upstream tool surface before
+  promotion; if it embeds server-side with a different model, MCP mode
+  would split the embedding pipeline and lose the "same vector space"
+  property cloud mode relies on.
+- Auth model for `mcp-redis` against Redis Cloud — token in MCP server
+  `env`, or an ACL user-per-instance? Per-instance ACLs make
+  shadow-banning a noisy writer tractable; a shared token does not.
+- Fan-out semantics with `MR_ROBOT_COOP_TRANSPORT=both` — primary MCP
+  with direct fallback is simple; "write to both and reconcile" is
+  safer against transport-specific data loss but doubles the write
+  cost. Default is fallback; reconcile-mode is deferred.
+- Does MCP mode obviate the dedicated `MR_ROBOT_COOP_QDRANT_*` env vars
+  long-term, or do both transports keep their own config so an operator
+  can flip between them without re-wiring?
 
 ### `htb-api` sibling
 
@@ -492,4 +649,7 @@ does not promote to Accepted until `doctor` exists and reliably distinguishes
 - Future: a separate ADR for the `htb-api` sibling MCP server once its
   surface stabilises.
 - External: Qdrant Cloud — https://cloud.qdrant.io
+- External: `mcp-server-qdrant` — https://github.com/qdrant/mcp-server-qdrant
+- External: Redis Cloud — https://redis.io/cloud/
+- External: `mcp-redis` — https://github.com/redis/mcp-redis
 - External: HackTheBox v4 API — https://app.hackthebox.com/api/v4

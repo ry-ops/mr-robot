@@ -61,7 +61,7 @@ Cold recall ≈ 17 ms (FTS5 + Qdrant + embedding); cached ≈ 0.1 ms. See
 </p>
 
 A second tier above the memory so judgment compounds across **operators**,
-not just engagements on one host. Two federation modes:
+not just engagements on one host. Three federation modes:
 
 - **Cloud mode** — opted-in instances write solved progress to a hosted
   Qdrant Cloud collection and read it back at triage / reinforce time.
@@ -72,14 +72,21 @@ not just engagements on one host. Two federation modes:
   the shared source of truth for the event. The host shares a **join key**
   out of band; participants attach and their writes/reads route through
   the host's vault for the duration of the event.
+- **MCP mode** *(planned)* — same destinations as cloud mode (managed
+  Qdrant, optionally managed Redis), but the transport is an MCP server
+  in front of each backend: `mcp-server-qdrant` against Qdrant Cloud and
+  `mcp-redis` against Redis Cloud. Selected via
+  `MR_ROBOT_COOP_TRANSPORT=mcp`, this keeps every external dependency on
+  the same protocol Mr. Robot itself already speaks and moves
+  credentials into Claude Code's MCP config.
 
-Both modes reuse the memory adapter, embedding pipeline, and `Recollection`
-shape, and gate writes through a single auditable scrubber on the
-solved-only path. ADR-0015 also proposes **`htb-api`**, an upcoming sibling
-MCP server that wraps the HackTheBox v4 API so the orchestrator and the
-co-op can ground themselves in what's actually live on the platform. See
-[ADR-0015](adr/ADR-0015-the-co-op.md) for the full proposal and promotion
-criteria.
+All three modes reuse the memory adapter, embedding pipeline, and
+`Recollection` shape, and gate writes through a single auditable scrubber
+on the solved-only path. ADR-0015 also proposes **`htb-api`**, an upcoming
+sibling MCP server that wraps the HackTheBox v4 API so the orchestrator
+and the co-op can ground themselves in what's actually live on the
+platform. See [ADR-0015](adr/ADR-0015-the-co-op.md) for the full proposal
+and promotion criteria.
 
 ## The Hats
 
