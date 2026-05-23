@@ -107,10 +107,18 @@ The `mr-robot` MCP server is the arsenal layer — Claude Code (and the
 AgentRobots the orchestrator spawns) reach the arcade, playbook, and Hat
 registry through it.
 
+Register at **user scope** so the server is visible from any directory, not
+just the one you ran `claude mcp add` from:
+
 ```bash
-claude mcp add mr-robot python3 "$HOME/Mr. Robot/server/mr_robot.py"
-claude mcp list   # confirm "mr-robot" is present
+claude mcp add -s user mr-robot python3 "$HOME/Mr. Robot/server/mr_robot.py"
+claude mcp list   # confirm "mr-robot: ... ✓ Connected"
 ```
+
+If you omit `-s user`, Claude Code defaults to **local** scope — the
+registration is bound to the current working directory and `claude mcp list`
+will not show it from anywhere else. Easy mistake; user scope is the right
+default for an MCP server you intend to drive the orchestrator with.
 
 ## 8. Verify with a mock run
 

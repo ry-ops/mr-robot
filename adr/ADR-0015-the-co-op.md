@@ -15,7 +15,10 @@ Proposed. Promotion to Accepted requires a wired co-op backend in
 `server/memory.py` (a second Qdrant client pointed at Qdrant Cloud), a
 PII-scrubbing function on the engagement-summary and terminal-finding write
 paths, an opt-in env flag (`MR_ROBOT_COOP_ENABLED`), a pseudonymous instance
-handle stored in user config, and a verified write→read round trip from one
+handle stored in user config, a `doctor` command that reports backend
+connectivity (the MCP server, Redis, local Qdrant, aiana, and the co-op's
+Qdrant Cloud) and reliably distinguishes "the co-op is live" from "the
+co-op silently isn't", and a verified write→read round trip from one
 instance to another against a live Qdrant Cloud cluster — mirroring the
 end-to-end verification gate used for ADR-0014.
 
@@ -199,6 +202,71 @@ embedding cost is local (CPU-only `all-MiniLM-L6-v2`), so the only marginal
 spend is Qdrant Cloud storage + queries. Budget assumption: low-hundreds of
 solved engagements across opted-in instances stays well under paid-tier
 thresholds. Revisit if growth turns into a real bill.
+
+### Pre-flight checks: the `doctor` command *(upcoming)*
+
+The co-op adds a remote backend (Qdrant Cloud) whose connectivity is harder
+to debug than a local service. "It silently degraded and I didn't notice"
+is the failure mode this ADR most wants to avoid — a co-op that thinks it
+is writing but isn't dilutes operator trust faster than no co-op at all.
+
+The same operability gap already exists, less acutely, for the local stack:
+the MCP server can be registered at the wrong scope, Redis can have died,
+Qdrant's container can have exited, aiana can be installed in a different
+Python. Each is feature-detected at use site, but the operator only finds
+out at the first cold-recall, which is the worst time.
+
+This ADR introduces a **`doctor`** command — a single pre-flight check that
+verifies every backend the system depends on and prints a status table.
+Proposed entrypoint:
+
+```
+python3 server/doctor.py
+```
+
+What it checks (v1):
+
+| Backend | Check | Required for |
+|---------|-------|--------------|
+| MCP server | `claude mcp list` shows `mr-robot` with ✓ Connected, at user scope | real (non-mock) runs |
+| Redis | `PING` over `MR_ROBOT_REDIS_URL` | memory cache (ADR-0014) |
+| Local Qdrant | `GET /readyz` on `MR_ROBOT_QDRANT_URL` | semantic recall (ADR-0014) |
+| aiana | `import aiana` succeeds in the same Python `mr_robot.py` uses | memory writes (ADR-0014) |
+| Co-op Qdrant Cloud | `GET /readyz` on `MR_ROBOT_COOP_QDRANT_URL` with the configured API key | co-op reads & shares (ADR-0015) |
+| Co-op opt-in | `MR_ROBOT_COOP_ENABLED` parsed and consistent with the URL/key being set | co-op reads & shares |
+
+Output is a status table — one row per backend — with one of three states:
+**OK** (green ✓), **Degraded** (yellow !) where the backend is missing but
+the layer it serves degrades gracefully, or **Fail** (red ✗) where
+something the operator clearly intended to be on is not on. Exit code is
+non-zero iff any row is Fail.
+
+Behaviour:
+
+- **Boundary, not gating.** `doctor` is advisory — it never starts or
+  configures backends, never mutates Claude Code config, never writes to
+  Qdrant Cloud. It only inspects. Fixing things stays the operator's job
+  and `how-to-install.md`'s job.
+- **Solo and on-loop modes.** Solo (default) — run once, print, exit.
+  On-loop (`--watch`) — re-checks every N seconds for use during an
+  engagement; cheap because every check is read-only.
+- **Opt-in-aware.** With `MR_ROBOT_COOP_ENABLED` off, the co-op rows
+  report `Disabled` (not Fail). With it on but URL/key missing, those
+  rows are Fail — the operator asked for the co-op and it isn't actually
+  wired.
+- **Machine-readable mode.** `--json` emits the same status as a single
+  JSON object so the orchestrator's startup path and CI can consume it
+  without parsing text.
+
+Why introduced here: the co-op is the first backend that crosses the
+machine boundary, and so the first whose silent degradation is invisible
+to the operator until recall returns nothing surprising. The `doctor` is
+the smallest tool that closes that gap — and once it exists, covering the
+local backends with it is essentially free.
+
+`doctor` is part of this ADR's promotion criterion (see Status): the co-op
+does not promote to Accepted until `doctor` exists and reliably distinguishes
+"the co-op is live" from "the co-op silently isn't".
 
 ## Consequences
 

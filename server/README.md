@@ -25,7 +25,12 @@ system / user Python — no venv required.
 python3 "/home/ryan/Mr. Robot/server/mr_robot.py"
 ```
 
-Already registered with Claude Code as `mr-robot` (`claude mcp list`).
+Register with Claude Code at user scope so it's visible from any directory:
+
+```
+claude mcp add -s user mr-robot python3 "$HOME/Mr. Robot/server/mr_robot.py"
+claude mcp list   # confirm "mr-robot: ... ✓ Connected"
+```
 
 ## Run the orchestrator
 
