@@ -17,7 +17,7 @@ and every ADR prefaces a **Hat** — a persona defined along three axes: intent,
 ethics, and behavior. The orchestrator points Hat _robots_ at a box; they work
 a shared task board (the **arcade**); a declarative **playbook** turns findings
 into new tasks; and the campaign adapts as it runs — spreading robots across
-the attack surface or ganging them on one tough target.
+the attack surface or ganging up on one tough target.
 
 The differentiator isn't the tooling — Kali already has the tools. The
 differentiator is **judgment that compounds across boxes**, which is what the
