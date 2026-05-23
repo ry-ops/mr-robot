@@ -4,8 +4,6 @@
 
 # Mr. Robot
 
-[![latest release](https://img.shields.io/github/v/release/ry-ops/mr-robot?label=release&color=ff2a45)](https://github.com/ry-ops/mr-robot/releases/latest)
-
 An orchestrated, ADR-driven security framework for Kali — a HackTheBox co-pilot
 that runs multiple "Hat" personas concurrently to compress a weekend of boxes
 into hours. Named for the TV series.
