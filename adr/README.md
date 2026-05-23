@@ -45,6 +45,7 @@ ADRs that define structural components rather than Hat personas.
 | [0012](ADR-0012-the-arcade.md) | The Arcade | Shared findings store + task board, backed by SQLite |
 | [0013](ADR-0013-the-orchestrator.md) | The Orchestrator | Mr. Robot — spawns and supervises Hat robots; the control loop |
 | [0014](ADR-0014-the-memory.md) | The Memory | Cross-engagement recall via aiana; SQLite + Qdrant + Redis |
+| [0015](ADR-0015-the-co-op.md) | The Co-op | *Proposed* — cross-operator memory tier on Qdrant Cloud; opt-in, solved-only |
 
 ## ADR Lifecycle
 
@@ -56,6 +57,11 @@ ADR-0012, ADR-0013, and ADR-0014 are **Accepted** — built and verified.
 ADR-0014's three backends (aiana/SQLite-FTS5, Qdrant, Redis) were verified
 end-to-end on 2026-05-23 with all three services running; each is
 feature-detected and degrades independently.
+
+ADR-0015 (the co-op) is **Proposed**. Its promotion criterion is named in
+the ADR: a wired Qdrant Cloud backend in `server/memory.py`, a scrubber on
+the share paths, an opt-in env flag, a pseudonymous instance handle, and
+a verified write→read round trip from one instance to another.
 
 Hat ADRs have been finalized. Those whose contract reduces to "operate within
 the engagement's `box_ip` scope using the wired toolset" — and is therefore
