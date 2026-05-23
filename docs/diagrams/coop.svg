@@ -1,0 +1,182 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1400 800" width="100%" preserveAspectRatio="xMidYMid meet" role="img" aria-labelledby="t5 d5">
+  <title id="t5">Mr. Robot — the Co-op</title>
+  <desc id="d5">The Co-op: event-scoped federation. A host operator creates a join key; participants point at the host's local Qdrant as the shared source of truth for the event. An htb-api MCP server feeds HackTheBox event metadata to the host. All participants share scrubbed solved-only progress and read recollections back. A Qdrant Cloud mode is also available for asynchronous cross-time sharing.</desc>
+
+  <defs>
+    <linearGradient id="bg5" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#070710"/>
+      <stop offset="100%" stop-color="#05050a"/>
+    </linearGradient>
+    <radialGradient id="vault5" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#ffaa22" stop-opacity="0.55"/>
+      <stop offset="100%" stop-color="#ffaa22" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="host5" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#ff2a45" stop-opacity="0.7"/>
+      <stop offset="100%" stop-color="#ff2a45" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="g5" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="2.5" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="g5soft" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="6" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <pattern id="scan5" width="3" height="3" patternUnits="userSpaceOnUse">
+      <rect width="3" height="1.2" fill="#39ff14" fill-opacity="0.02"/>
+    </pattern>
+  </defs>
+
+  <rect width="1400" height="800" fill="url(#bg5)"/>
+  <rect width="1400" height="800" fill="url(#scan5)"/>
+
+  <!-- title -->
+  <g font-family="ui-monospace, 'JetBrains Mono', monospace">
+    <text x="700" y="52" text-anchor="middle" font-size="28" font-weight="700" fill="#ff2a45" letter-spacing="6" filter="url(#g5soft)">THE CO-OP</text>
+    <text x="700" y="78" text-anchor="middle" font-size="11" fill="#7fff8f" letter-spacing="3" opacity="0.75">event-scoped federation · solved-only · scrubbed · proposed</text>
+  </g>
+
+  <!-- HTB API node (top-left) -->
+  <g transform="translate(180 220)" font-family="ui-monospace, monospace">
+    <circle r="50" fill="none" stroke="#ffaa22" stroke-width="0.8" opacity="0.3">
+      <animate attributeName="r" values="44;62;44" dur="3.4s" repeatCount="indefinite"/>
+      <animate attributeName="opacity" values="0.45;0;0.45" dur="3.4s" repeatCount="indefinite"/>
+    </circle>
+    <path d="M -32 -38 L 32 -38 L 32 12 Q 32 36 0 50 Q -32 36 -32 12 Z" fill="#1a1424" stroke="#ffaa22" stroke-width="1.6" filter="url(#g5)"/>
+    <text x="0" y="-6" text-anchor="middle" font-size="13" fill="#ffd070" font-weight="700">HTB</text>
+    <text x="0" y="10" text-anchor="middle" font-size="9" fill="#ffd070" letter-spacing="2">API</text>
+    <text x="0" y="78" text-anchor="middle" font-size="11" fill="#d4b878" letter-spacing="1">htb-api</text>
+    <text x="0" y="92" text-anchor="middle" font-size="9" fill="#5a6280">MCP · sibling · upcoming</text>
+  </g>
+
+  <!-- HTB API to HOST flow -->
+  <line x1="220" y1="200" x2="640" y2="210" stroke="#ffaa22" stroke-width="1" stroke-dasharray="6 4" opacity="0.65">
+    <animate attributeName="stroke-dashoffset" values="0;-10" dur="1.2s" repeatCount="indefinite"/>
+  </line>
+  <text x="430" y="190" font-size="9" fill="#d4b878" font-family="ui-monospace, monospace" text-anchor="middle" letter-spacing="2">CHALLENGE FEED ▸</text>
+
+  <!-- HOST node -->
+  <g transform="translate(700 220)" font-family="ui-monospace, monospace">
+    <circle r="60" fill="url(#host5)">
+      <animate attributeName="r" values="56;74;56" dur="2.6s" repeatCount="indefinite"/>
+    </circle>
+    <circle r="42" fill="#0a0a14" stroke="#ff2a45" stroke-width="2" filter="url(#g5)"/>
+    <path d="M -22 -28 L -12 -42 L -4 -34 L 0 -46 L 4 -34 L 12 -42 L 22 -28 Z" fill="#ff2a45" stroke="#ff7090" stroke-width="0.6" filter="url(#g5)"/>
+    <text y="2" text-anchor="middle" font-size="10" fill="#ff7090" font-weight="700">HOST</text>
+    <text y="16" text-anchor="middle" font-size="8" fill="#ff7090">primary</text>
+    <text y="68" text-anchor="middle" font-size="11" fill="#ff9bab" letter-spacing="1">Host operator</text>
+    <text y="82" text-anchor="middle" font-size="9" fill="#5a6280">owns the event's qdrant</text>
+  </g>
+
+  <!-- HOST to VAULT -->
+  <line x1="700" y1="280" x2="700" y2="370" stroke="#ff2a45" stroke-width="1.6" opacity="0.7"/>
+  <text x="712" y="328" font-size="9" fill="#ff9bab" font-family="ui-monospace, monospace" letter-spacing="2">HOSTS</text>
+
+  <!-- VAULT (center) -->
+  <g transform="translate(700 460)" font-family="ui-monospace, monospace">
+    <circle r="90" fill="url(#vault5)">
+      <animate attributeName="r" values="80;104;80" dur="3s" repeatCount="indefinite"/>
+    </circle>
+    <rect x="-70" y="-50" width="140" height="100" rx="6" fill="#0a0a14" stroke="#ffaa22" stroke-width="2" filter="url(#g5)"/>
+    <line x1="-70" y1="-22" x2="70" y2="-22" stroke="#ffaa22" stroke-width="1.2" opacity="0.6"/>
+    <circle r="6" cy="-2" fill="none" stroke="#ffd070" stroke-width="1.8"/>
+    <rect x="-2" y="4" width="4" height="14" fill="#ffd070"/>
+    <text y="42" text-anchor="middle" font-size="11" fill="#ffd070" font-weight="700" letter-spacing="2">CO-OP VAULT</text>
+    <text y="58" text-anchor="middle" font-size="8" fill="#d4b878">host's qdrant · event-scoped</text>
+  </g>
+
+  <!-- JOIN KEY indicator -->
+  <g transform="translate(950 460)" font-family="ui-monospace, monospace">
+    <g filter="url(#g5)">
+      <circle r="14" fill="none" stroke="#39ff14" stroke-width="2">
+        <animate attributeName="stroke-opacity" values="1;0.35;1" dur="1.6s" repeatCount="indefinite"/>
+      </circle>
+      <circle r="4" cx="0" cy="0" fill="#39ff14"/>
+      <rect x="10" y="-3" width="40" height="6" fill="#39ff14"/>
+      <rect x="40" y="-3" width="4" height="12" fill="#39ff14"/>
+      <rect x="48" y="-3" width="4" height="10" fill="#39ff14"/>
+    </g>
+    <text x="26" y="-30" text-anchor="middle" font-size="10" fill="#7fff8f" font-weight="700" letter-spacing="3">JOIN KEY</text>
+    <text x="26" y="42" text-anchor="middle" font-size="11" fill="#7fff8f" letter-spacing="2">KARP-V8K2-NEBU-72QC</text>
+    <text x="26" y="56" text-anchor="middle" font-size="8" fill="#5a6280">shared out of band · 24h TTL</text>
+  </g>
+
+  <!-- PARTICIPANTS -->
+  <g transform="translate(280 620)" font-family="ui-monospace, monospace">
+    <circle r="32" fill="#4488ff" fill-opacity="0.18" stroke="#4488ff" stroke-width="2" filter="url(#g5)">
+      <animate attributeName="r" values="30;36;30" dur="3.4s" begin="-0.2s" repeatCount="indefinite"/>
+    </circle>
+    <text y="4" text-anchor="middle" font-size="10" fill="#aaccff" font-weight="700">OP · A</text>
+    <text y="58" text-anchor="middle" font-size="9" fill="#a0b8c8">participant</text>
+  </g>
+  <g transform="translate(700 700)" font-family="ui-monospace, monospace">
+    <circle r="32" fill="#4488ff" fill-opacity="0.18" stroke="#4488ff" stroke-width="2" filter="url(#g5)">
+      <animate attributeName="r" values="30;36;30" dur="3.4s" begin="-0.9s" repeatCount="indefinite"/>
+    </circle>
+    <text y="4" text-anchor="middle" font-size="10" fill="#aaccff" font-weight="700">OP · B</text>
+    <text y="58" text-anchor="middle" font-size="9" fill="#a0b8c8">participant</text>
+  </g>
+  <g transform="translate(1120 620)" font-family="ui-monospace, monospace">
+    <circle r="32" fill="#4488ff" fill-opacity="0.18" stroke="#4488ff" stroke-width="2" filter="url(#g5)">
+      <animate attributeName="r" values="30;36;30" dur="3.4s" begin="-1.6s" repeatCount="indefinite"/>
+    </circle>
+    <text y="4" text-anchor="middle" font-size="10" fill="#aaccff" font-weight="700">OP · C</text>
+    <text y="58" text-anchor="middle" font-size="9" fill="#a0b8c8">participant</text>
+  </g>
+
+  <!-- WRITE flows (dashed green, scrubbed shares) -->
+  <line x1="305" y1="595" x2="640" y2="490" stroke="#39ff14" stroke-width="0.9" stroke-dasharray="4 4" opacity="0.6">
+    <animate attributeName="stroke-dashoffset" values="0;-8" dur="0.9s" repeatCount="indefinite"/>
+  </line>
+  <line x1="700" y1="670" x2="700" y2="510" stroke="#39ff14" stroke-width="0.9" stroke-dasharray="4 4" opacity="0.6">
+    <animate attributeName="stroke-dashoffset" values="0;-8" dur="0.9s" begin="-0.3s" repeatCount="indefinite"/>
+  </line>
+  <line x1="1097" y1="595" x2="760" y2="490" stroke="#39ff14" stroke-width="0.9" stroke-dasharray="4 4" opacity="0.6">
+    <animate attributeName="stroke-dashoffset" values="0;-8" dur="0.9s" begin="-0.6s" repeatCount="indefinite"/>
+  </line>
+
+  <!-- READ flows (solid pulsing blue, recall) -->
+  <line x1="320" y1="610" x2="640" y2="500" stroke="#4488ff" stroke-width="0.7" opacity="0.5">
+    <animate attributeName="opacity" values="0.2;0.8;0.2" dur="1.4s" repeatCount="indefinite"/>
+  </line>
+  <line x1="710" y1="670" x2="710" y2="510" stroke="#4488ff" stroke-width="0.7" opacity="0.5">
+    <animate attributeName="opacity" values="0.2;0.8;0.2" dur="1.4s" begin="-0.5s" repeatCount="indefinite"/>
+  </line>
+  <line x1="1080" y1="610" x2="760" y2="500" stroke="#4488ff" stroke-width="0.7" opacity="0.5">
+    <animate attributeName="opacity" values="0.2;0.8;0.2" dur="1.4s" begin="-0.8s" repeatCount="indefinite"/>
+  </line>
+
+  <!-- flow labels -->
+  <text x="460" y="556" font-size="9" fill="#7fff8f" font-family="ui-monospace, monospace" letter-spacing="2">SHARE (scrubbed) ▸</text>
+  <text x="900" y="556" font-size="9" fill="#aaccff" font-family="ui-monospace, monospace" letter-spacing="2">◂ RECALL</text>
+
+  <!-- CLOUD MODE pictogram -->
+  <g transform="translate(1220 220)" font-family="ui-monospace, monospace">
+    <text y="-50" text-anchor="middle" font-size="9" fill="#5a6280" letter-spacing="3">ALSO AVAILABLE</text>
+    <g filter="url(#g5)" opacity="0.85">
+      <ellipse cx="-18" cy="0" rx="22" ry="14" fill="#1a1424" stroke="#888a96" stroke-width="1.2"/>
+      <ellipse cx="0" cy="-8" rx="22" ry="16" fill="#1a1424" stroke="#888a96" stroke-width="1.2"/>
+      <ellipse cx="18" cy="0" rx="22" ry="14" fill="#1a1424" stroke="#888a96" stroke-width="1.2"/>
+    </g>
+    <text x="0" y="3" text-anchor="middle" font-size="8" fill="#c0c0cc" font-weight="700">QDRANT</text>
+    <text x="0" y="14" text-anchor="middle" font-size="8" fill="#c0c0cc">CLOUD</text>
+    <text x="0" y="46" text-anchor="middle" font-size="9" fill="#a0a0b0" letter-spacing="1">cloud mode</text>
+    <text x="0" y="60" text-anchor="middle" font-size="8" fill="#5a6280">async · global · always-on</text>
+  </g>
+
+  <!-- LEGEND -->
+  <g font-family="ui-monospace, monospace" font-size="10" transform="translate(80 760)">
+    <line x1="0" y1="0" x2="22" y2="0" stroke="#39ff14" stroke-width="1.2" stroke-dasharray="4 4"/>
+    <text x="32" y="3" fill="#7fff8f">SHARE — solved-only writes through scrubber</text>
+    <line x1="380" y1="0" x2="402" y2="0" stroke="#4488ff" stroke-width="1.2"/>
+    <text x="412" y="3" fill="#a0b8c8">RECALL — reads at triage / reinforce / repurpose</text>
+    <line x1="800" y1="0" x2="822" y2="0" stroke="#ffaa22" stroke-width="1.2" stroke-dasharray="6 4"/>
+    <text x="832" y="3" fill="#d4b878">htb-api — challenge metadata feed</text>
+  </g>
+
+  <!-- footer -->
+  <g font-family="ui-monospace, monospace" font-size="9" fill="#5a6280" opacity="0.7">
+    <text x="1320" y="780" text-anchor="end" letter-spacing="2">ADR-0015 · the co-op · proposed</text>
+  </g>
+</svg>

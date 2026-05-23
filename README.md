@@ -56,14 +56,30 @@ Cold recall ≈ 17 ms (FTS5 + Qdrant + embedding); cached ≈ 0.1 ms. See
 
 ## The Co-op *(proposed)*
 
-A second tier above the memory: opted-in instances share *solved* engagement
-summaries and high-confidence terminal findings to a hosted Qdrant Cloud
-collection, so judgment compounds across **operators**, not just engagements
-on one host. Reuses the memory adapter, embedding pipeline, and `Recollection`
-shape — adds a pseudonymous instance handle, a single auditable scrubber on
-the share paths, and an opt-in env flag (`MR_ROBOT_COOP_ENABLED`) that
-defaults off. See [ADR-0015](adr/ADR-0015-the-co-op.md) for the full proposal
-and promotion criteria.
+<p align="center">
+  <img src="docs/diagrams/coop.svg" alt="The Co-op: a host operator creates a join key; participants point at the host's local Qdrant as the shared source of truth for the event. An htb-api MCP server feeds HackTheBox challenge metadata to the host. All participants share scrubbed solved-only progress and read recollections back. A Qdrant Cloud mode is also available for asynchronous cross-time sharing." width="100%">
+</p>
+
+A second tier above the memory so judgment compounds across **operators**,
+not just engagements on one host. Two federation modes:
+
+- **Cloud mode** — opted-in instances write solved progress to a hosted
+  Qdrant Cloud collection and read it back at triage / reinforce time.
+  Async, global, always-on; best for cross-time learning.
+- **Event mode** *(planned)* — for time-bounded collaborative challenges
+  (HTB Battlegrounds, a new-release box drop, a CTF). The operator who
+  starts the session becomes the **host**; their *local* Qdrant becomes
+  the shared source of truth for the event. The host shares a **join key**
+  out of band; participants attach and their writes/reads route through
+  the host's vault for the duration of the event.
+
+Both modes reuse the memory adapter, embedding pipeline, and `Recollection`
+shape, and gate writes through a single auditable scrubber on the
+solved-only path. ADR-0015 also proposes **`htb-api`**, an upcoming sibling
+MCP server that wraps the HackTheBox v4 API so the orchestrator and the
+co-op can ground themselves in what's actually live on the platform. See
+[ADR-0015](adr/ADR-0015-the-co-op.md) for the full proposal and promotion
+criteria.
 
 ## The Hats
 

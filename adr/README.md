@@ -45,7 +45,7 @@ ADRs that define structural components rather than Hat personas.
 | [0012](ADR-0012-the-arcade.md) | The Arcade | Shared findings store + task board, backed by SQLite |
 | [0013](ADR-0013-the-orchestrator.md) | The Orchestrator | Mr. Robot — spawns and supervises Hat robots; the control loop |
 | [0014](ADR-0014-the-memory.md) | The Memory | Cross-engagement recall via aiana; SQLite + Qdrant + Redis |
-| [0015](ADR-0015-the-co-op.md) | The Co-op | *Proposed* — cross-operator memory tier on Qdrant Cloud; opt-in, solved-only |
+| [0015](ADR-0015-the-co-op.md) | The Co-op | *Proposed* — cross-operator memory; cloud + event (join-key) modes; htb-api sibling MCP server upcoming |
 
 ## ADR Lifecycle
 
