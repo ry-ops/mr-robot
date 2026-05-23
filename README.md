@@ -119,6 +119,8 @@ Mr. Robot/
 
 ## Quick start
 
+> **First time?** Follow [how-to-install.md](how-to-install.md) for the full setup — prerequisites, Python deps, aiana, Redis, Qdrant, MCP registration, and a verified mock run.
+
 ```bash
 # mock run — free, deterministic, exercises the whole loop
 python3 "server/orchestrator.py" Lame 10.10.10.3 --mock
@@ -154,6 +156,18 @@ flag. The shortest path to a contribution is
 2. Open a new ADR for the change (or propose a status flip on an existing one).
 3. Implement against the runtime; the runtime is the source of truth for
    whether an ADR is Proposed or Accepted.
+
+## Built on
+
+Mr. Robot leans on two sibling projects of mine:
+
+- **[aiana](https://github.com/ry-ops/aiana)** — the cross-engagement memory
+  layer (ADR-0014). aiana owns the SQLite + FTS5 + Qdrant storage; Mr. Robot
+  drives it through a single adapter at `server/memory.py`.
+- **[git-steer](https://github.com/ry-ops/git-steer)** — a rate-limit-hardened
+  MCP server for autonomous repo management. Mr. Robot borrows parts of its
+  patterns for shaping an MCP surface that an agent can drive without
+  babysitting.
 
 ## License
 
