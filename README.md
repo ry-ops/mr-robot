@@ -4,6 +4,8 @@
 
 # Mr. Robot
 
+[![latest release](https://img.shields.io/github/v/release/ry-ops/mr-robot?label=release&color=ff2a45)](https://github.com/ry-ops/mr-robot/releases/latest)
+
 An orchestrated, ADR-driven security framework for Kali — a HackTheBox co-pilot
 that runs multiple "Hat" personas concurrently to compress a weekend of boxes
 into hours. Named for the TV series.
@@ -54,6 +56,17 @@ backends. The arcade stays per-engagement; cross-engagement state lives here.
 Cold recall ≈ 17 ms (FTS5 + Qdrant + embedding); cached ≈ 0.1 ms. See
 [ADR-0014](adr/ADR-0014-the-memory.md).
 
+## The Co-op *(proposed)*
+
+A second tier above the memory: opted-in instances share *solved* engagement
+summaries and high-confidence terminal findings to a hosted Qdrant Cloud
+collection, so judgment compounds across **operators**, not just engagements
+on one host. Reuses the memory adapter, embedding pipeline, and `Recollection`
+shape — adds a pseudonymous instance handle, a single auditable scrubber on
+the share paths, and an opt-in env flag (`MR_ROBOT_COOP_ENABLED`) that
+defaults off. See [ADR-0015](adr/ADR-0015-the-co-op.md) for the full proposal
+and promotion criteria.
+
 ## The Hats
 
 <p align="center">
@@ -99,6 +112,7 @@ Mr. Robot/
 | Layer 1 — arsenal ([ADR-0012](adr/ADR-0012-the-arcade.md))         | Built · connected to Claude Code · verified |
 | Layer 2 — orchestrator ([ADR-0013](adr/ADR-0013-the-orchestrator.md)) | Built · verified with mock + real agents |
 | The Memory ([ADR-0014](adr/ADR-0014-the-memory.md))                 | Built · verified end-to-end with aiana + Qdrant + Redis live |
+| The Co-op ([ADR-0015](adr/ADR-0015-the-co-op.md))                   | Proposed · cross-operator tier on Qdrant Cloud, opt-in + solved-only |
 | Hat ADRs — Accepted    | 0001 White · 0002 Black · 0005 Blue · 0007 Purple · 0009 Red Team |
 | Hat ADRs — Proposed    | 0003 Gray · 0004 Red · 0006 Green · 0008 Script Kiddie · 0010 Blue Team · 0011 Purple Team |
 | Robot toolset          | Recon only — web / exploitation wrappers not yet built |
