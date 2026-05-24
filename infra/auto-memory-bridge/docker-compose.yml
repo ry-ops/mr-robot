@@ -1,0 +1,35 @@
+# auto-memory → aiana bridge.
+#
+# Mirrors ~/.claude/projects/*/memory/*.md into the shared aiana DB so
+# distilled cross-session notes land in the same store as raw aiana
+# transcripts.
+#
+# Bring up:   docker compose up -d --build
+# Logs:       docker compose logs -f
+# Tear down:  docker compose down
+#
+# Notes:
+# - Runs as the host user (UID/GID) so the aiana DB stays writable by
+#   both the bridge and the host's `aiana` CLI. Export UID/GID before
+#   `up` if your shell does not export them by default:
+#     UID=$(id -u) GID=$(id -g) docker compose up -d --build
+# - The Claude Code projects directory is mounted read-only — the
+#   bridge never modifies auto-memory files.
+# - If inotify events from the bind-mount do not reach the container
+#   (some Docker Desktop setups), set BRIDGE_POLLING=1 to fall back
+#   to filesystem polling at BRIDGE_POLL_INTERVAL (default 2s).
+
+services:
+  auto-memory-bridge:
+    build: .
+    container_name: auto-memory-bridge
+    restart: unless-stopped
+    user: "${UID:-1000}:${GID:-1000}"
+    environment:
+      AIANA_DB_PATH: /aiana/conversations.db
+      CLAUDE_PROJECTS_DIR: /claude/projects
+      # BRIDGE_POLLING: "1"
+      # BRIDGE_POLL_INTERVAL: "2"
+    volumes:
+      - ${HOME}/.claude/projects:/claude/projects:ro
+      - ${HOME}/.aiana:/aiana:rw

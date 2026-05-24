@@ -1,0 +1,3 @@
+aiana==0.1.0
+watchdog>=4.0
+pyyaml>=6
