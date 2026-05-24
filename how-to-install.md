@@ -162,6 +162,111 @@ scaling up.
 The co-op (ADR-0015) is **Proposed** and not wired yet —
 `MR_ROBOT_COOP_*` variables are reserved for the eventual implementation.
 
+## 11. Optional — capture Claude Code in aiana
+
+Aiana (step 4) can hold **everything Claude Code does in this project**,
+not just Mr. Robot's engagement memory. Two independent integrations
+land in the same `~/.aiana/conversations.db`:
+
+- **Raw conversation transcripts** — captured by aiana's Claude Code
+  hooks as each session runs.
+- **Distilled auto-memory** — the markdown notes Claude Code maintains
+  at `~/.claude/projects/*/memory/*.md`, mirrored into aiana by a
+  small bridge container in `infra/auto-memory-bridge/`.
+
+Both are optional and additive. Mr. Robot's orchestrator runs identically
+whether they're on or off.
+
+### 11a. Install aiana's Claude Code hooks
+
+```bash
+python3 -c "from aiana.hooks import install_hooks; install_hooks()"
+```
+
+This adds three entries (`SessionStart`, `SessionEnd`, `PostToolUse`) to
+`~/.claude/settings.json`, each running `aiana hook ...` on PATH. Hooks
+take effect on the **next** Claude Code session — the one running when
+you install does not get captured.
+
+Verify the next session lands a row:
+
+```bash
+sqlite3 ~/.aiana/conversations.db \
+  "select id, started_at from sessions order by started_at desc limit 5;"
+```
+
+To uninstall later:
+
+```bash
+python3 -c "from aiana.hooks import uninstall_hooks; uninstall_hooks()"
+```
+
+### 11b. Run the auto-memory bridge
+
+The bridge is a containerised watcher that mirrors auto-memory files
+into aiana on change. Source lives in `infra/auto-memory-bridge/` and
+talks to host-aiana's SQLite via a volume mount.
+
+Prerequisites — the bridge runs in Docker, so you need group access
+and the compose plugin:
+
+```bash
+sudo usermod -aG docker $USER
+newgrp docker                              # take effect in this shell
+sudo apt install -y docker-compose-plugin  # if not already installed
+```
+
+Bring up:
+
+```bash
+cd ~/Mr.\ Robot/infra/auto-memory-bridge
+UID=$(id -u) GID=$(id -g) docker compose up -d --build
+docker compose logs -f
+# → [bridge] initial sync: wrote=N skipped=0 invalid=0 failed=0
+# → [bridge] watching for changes
+```
+
+Smoke-test that a new auto-memory file is picked up:
+
+```bash
+cat > ~/.claude/projects/-home-ryan-Mr--Robot/memory/_smoke.md <<'EOF'
+---
+name: bridge-smoke
+description: smoke-test entry
+metadata:
+  type: reference
+---
+hello from the bridge smoke test
+EOF
+
+# bridge logs should print:
+#   [bridge] wrote: /claude/projects/.../memory/_smoke.md
+
+# confirm the row:
+sqlite3 ~/.aiana/conversations.db \
+  "select substr(id, 1, 30), summary from sessions
+   where metadata like '%auto-memory%' order by started_at desc limit 3;"
+
+# clean up:
+rm ~/.claude/projects/-home-ryan-Mr--Robot/memory/_smoke.md
+```
+
+Tear down:
+
+```bash
+cd ~/Mr.\ Robot/infra/auto-memory-bridge
+docker compose down
+```
+
+The bridge is idempotent — re-running `docker compose up -d --build`
+after a tear-down skips every file whose body hash is unchanged.
+Content changes produce new versioned sessions; history is preserved.
+
+If your environment is one where bind-mount inotify events don't
+reach the container (some Docker Desktop setups), set
+`BRIDGE_POLLING=1` in `docker-compose.yml` to fall back to
+filesystem polling at `BRIDGE_POLL_INTERVAL` seconds (default 2).
+
 ## Troubleshooting
 
 **`claude mcp list` does not show `mr-robot`.**
@@ -188,12 +293,31 @@ set `MR_ROBOT_QDRANT_URL` to match.
 You probably ran it from a directory other than the project root. Either
 `cd ~/Mr.\ Robot` first, or set `MR_ROBOT_HOME` to the absolute path.
 
+**Hooks installed but the current session isn't captured (step 11a).**
+Expected. Claude Code reads `settings.json` at session start, so any
+hooks added mid-session apply only from the next session onward.
+Restart Claude Code and re-check.
+
+**`docker compose up` fails with "permission denied … docker.sock" (step 11b).**
+The shell user isn't in the `docker` group. Run `sudo usermod -aG docker
+$USER && newgrp docker` (or open a new shell). Confirm with `groups |
+grep docker`.
+
+**Bridge logs `initial sync: invalid=N` (step 11b).**
+N memory files lack valid YAML frontmatter (the `---\n<yaml>\n---\n<body>`
+shape). Inspect with `head -5 ~/.claude/projects/*/memory/*.md` and either
+fix the frontmatter or delete the malformed file. `MEMORY.md` is the
+index file and is intentionally skipped — it does not count as invalid.
+
 ## What you have now
 
 - Layer 1 (the arsenal) registered with Claude Code as the `mr-robot` MCP server.
 - Layer 2 (the orchestrator) ready to spawn Hat robots — mock or real.
 - The memory layer wired to aiana, Qdrant, and Redis — each independently
   feature-detected and graceful when missing.
+- If you did step 11: aiana also capturing raw Claude Code transcripts
+  (via hooks) and the auto-memory bridge mirroring distilled notes into
+  the same DB.
 
 See [`README.md`](README.md) for the architecture overview and
 [`adr/`](adr/) for the decision records that explain *why* every piece is
