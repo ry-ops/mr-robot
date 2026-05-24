@@ -168,6 +168,17 @@ class Memory:
                 "MR_ROBOT_MEMORY_CACHE_TTL_SECONDS", "600"))
         except ValueError:
             self._cache_ttl = 600
+        # Declared deadlines on external calls (ADR-0016).
+        try:
+            self._qdrant_deadline = int(os.environ.get(
+                "MR_ROBOT_QDRANT_DEADLINE_SECONDS", "5"))
+        except ValueError:
+            self._qdrant_deadline = 5
+        try:
+            self._redis_deadline = float(os.environ.get(
+                "MR_ROBOT_REDIS_DEADLINE_SECONDS", "2"))
+        except ValueError:
+            self._redis_deadline = 2.0
 
         if not _AIANA_AVAILABLE:
             return
@@ -189,7 +200,8 @@ class Memory:
                 self._embed = SentenceTransformer("all-MiniLM-L6-v2")
                 url = os.environ.get(
                     "MR_ROBOT_QDRANT_URL", "http://localhost:6333")
-                self._qdrant = QdrantClient(url=url)
+                self._qdrant = QdrantClient(
+                    url=url, timeout=self._qdrant_deadline)
                 self._ensure_collection()
             except Exception as exc:
                 print(f"[memory] qdrant init failed: {exc} — running without "
@@ -210,7 +222,11 @@ class Memory:
             try:
                 url = os.environ.get(
                     "MR_ROBOT_REDIS_URL", "redis://localhost:6379/0")
-                client = _redis.Redis.from_url(url, decode_responses=True)
+                client = _redis.Redis.from_url(
+                    url, decode_responses=True,
+                    socket_timeout=self._redis_deadline,
+                    socket_connect_timeout=self._redis_deadline,
+                )
                 client.ping()
                 self._redis = client
             except Exception as exc:

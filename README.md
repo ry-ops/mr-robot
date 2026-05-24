@@ -127,6 +127,7 @@ Mr. Robot/
 | Layer 2 — orchestrator ([ADR-0013](adr/ADR-0013-the-orchestrator.md)) | Built · verified with mock + real agents |
 | The Memory ([ADR-0014](adr/ADR-0014-the-memory.md))                 | Built · verified end-to-end with aiana + Qdrant + Redis live |
 | The Co-op ([ADR-0015](adr/ADR-0015-the-co-op.md))                   | Proposed · cross-operator tier on Qdrant Cloud, opt-in + solved-only |
+| Lifecycle / Deadlines / Constraint IDs ([ADR-0016](adr/ADR-0016-lifecycle-deadlines-constraints.md)) | Built · event bus, env-tunable deadlines, `C-NNNN-NNN` IDs on ADR-0014 / ADR-0015 |
 | Hat ADRs — Accepted    | 0001 White · 0002 Black · 0005 Blue · 0007 Purple · 0009 Red Team |
 | Hat ADRs — Proposed    | 0003 Gray · 0004 Red · 0006 Green · 0008 Script Kiddie · 0010 Blue Team · 0011 Purple Team |
 | Robot toolset          | Recon only — web / exploitation wrappers not yet built |

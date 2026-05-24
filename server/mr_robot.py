@@ -32,6 +32,13 @@ ENGAGE_DIR = Path(os.environ.get("MR_ROBOT_ENGAGEMENTS",
                                  HOME / "engagements"))
 DB_PATH = ENGAGE_DIR / "arcade.db"
 
+# Declared deadline on external subprocess (ADR-0016).
+try:
+    RECON_DEADLINE = int(os.environ.get(
+        "MR_ROBOT_RECON_DEADLINE_SECONDS", "600"))
+except ValueError:
+    RECON_DEADLINE = 600
+
 ENGAGE_DIR.mkdir(parents=True, exist_ok=True)
 
 # --- wiring -------------------------------------------------------------
@@ -333,9 +340,10 @@ def recon_portscan(box_name: str, target: str, top_ports: int = 100) -> str:
     cmd = ["nmap", "-Pn", "-sT", "-T4", "--open", "-sV",
            "--top-ports", str(top_ports), "-oX", "-", target]
     try:
-        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
+        proc = subprocess.run(cmd, capture_output=True, text=True,
+                              timeout=RECON_DEADLINE)
     except subprocess.TimeoutExpired:
-        return f"X nmap timed out after 600s on {target}"
+        return f"X nmap timed out after {RECON_DEADLINE}s on {target}"
     except FileNotFoundError:
         return "X nmap not found on PATH"
     if proc.returncode != 0 and not proc.stdout.strip():

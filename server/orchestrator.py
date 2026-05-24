@@ -20,6 +20,7 @@ import sys
 import memory
 import mr_robot
 from brain import HeuristicBrain
+from events import EventBus
 from robots import AgentRobot, MockRobot
 
 
@@ -46,6 +47,13 @@ class Orchestrator:
         self._triage_recs: list | None = None       # set once, on first non-empty fp
         self._blocker_recs: dict = {}               # task_id -> [Recollection]
         self._memory_persisted = False
+        # --- lifecycle events (ADR-0016) ---
+        # Per-orchestrator bus. Terminal-state work attaches here instead of
+        # being called inline from run(); future subscribers (co-op share,
+        # htb-research enrichment) plug in without editing the control loop.
+        self.events = EventBus()
+        self.events.subscribe("engagement_ended", self._persist_memory)
+        self.events.subscribe("engagement_ended", self._report)
 
     # --- engagement --------------------------------------------------------
     def _ensure_engagement(self) -> dict:
@@ -89,6 +97,7 @@ class Orchestrator:
     # --- the control loop --------------------------------------------------
     async def run(self) -> None:
         eng = self._ensure_engagement()
+        self.events.emit("engagement_started", engagement=eng)
         self._log(f"engagement '{self.box_name}' ({self.box_ip}) — "
                   f"pool={self.pool_size} brain={self.brain.name} "
                   f"mock={self.mock}")
@@ -109,8 +118,8 @@ class Orchestrator:
             self._dispatch(plan, board)
             await asyncio.sleep(self.heartbeat)
         await self._drain()
-        self._persist_memory()
-        self._report()
+        final_eng = mr_robot.ARC.require_engagement(self.box_name)
+        self.events.emit("engagement_ended", engagement=final_eng)
 
     # --- memory layer (ADR-0014) -------------------------------------------
     def _update_recollections(self, findings: list, board: list) -> dict:
@@ -141,8 +150,12 @@ class Orchestrator:
             "fingerprint": fp,
         }
 
-    def _persist_memory(self) -> None:
-        """Write engagement summary + terminal findings at terminal."""
+    def _persist_memory(self, **_: object) -> None:
+        """Write engagement summary + terminal findings at terminal.
+
+        Subscribed to `engagement_ended` (ADR-0016). Accepts and ignores
+        event payload kwargs so the bus can route here directly.
+        """
         if self._memory_persisted:
             return
         eng = mr_robot.ARC.require_engagement(self.box_name)
@@ -237,7 +250,11 @@ class Orchestrator:
     def _log(self, msg: str) -> None:
         print(f"[t{self.tick:>3}] {msg}", flush=True)
 
-    def _report(self) -> None:
+    def _report(self, **_: object) -> None:
+        """Print the engagement summary at terminal.
+
+        Subscribed to `engagement_ended` (ADR-0016).
+        """
         eng = mr_robot.ARC.require_engagement(self.box_name)
         print("\n" + mr_robot.engagement_status(self.box_name))
         print(f"\nrobots: {len(self.robots)} active / {self._spawned} spawned"

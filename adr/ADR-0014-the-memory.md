@@ -19,6 +19,37 @@ through every public adapter method via `/tmp/mr_robot_memory_e2e.py`.
 Depends on ADR-0012 (the arcade) and ADR-0013 (the orchestrator); resolves
 the open question in ADR-0012 on cross-engagement state.
 
+### Constraints
+
+Per the constraint-ID pattern introduced in ADR-0016. Each ID names a
+contractual statement the runtime (and a future `doctor` per ADR-0015)
+can assert independently. IDs are append-only — deprecated constraints
+stay in place with a marker rather than being renumbered.
+
+- **C-0014-001** — all three backends (aiana/SQLite-FTS5, Qdrant, Redis)
+  must initialise without error for the layer to claim Accepted; each
+  is feature-detected and degrades independently below.
+- **C-0014-002** — embedding model is sentence-transformers
+  `all-MiniLM-L6-v2`, 384-dim, cosine distance.
+- **C-0014-003** — Qdrant unavailable → reads degrade to FTS5-only;
+  writes still succeed via aiana.
+- **C-0014-004** — Redis unavailable → cache bypassed; reads hit
+  SQLite/Qdrant directly; writes are unaffected.
+- **C-0014-005** — every write `INCR`s `mrrobot:memory:gen` and the
+  current generation value is folded into every cache key, so writes
+  invalidate all cached reads without an exhaustive scan.
+- **C-0014-006** — both tiers (orchestrator + robots) write through the
+  single adapter at `server/memory.py`; aiana types do not leak past it.
+- **C-0014-007** — memory recall is context, not authorization. The
+  scope guard (`box_ip`) is unchanged and remains the only authorization
+  gate; recollections from another box do not authorize action on the
+  current one.
+- **C-0014-008** — Qdrant client honours `MR_ROBOT_QDRANT_DEADLINE_SECONDS`
+  (default 5) per ADR-0016; a stuck Qdrant dies at the named deadline,
+  not at whichever OS-level timeout fires first.
+- **C-0014-009** — Redis client honours `MR_ROBOT_REDIS_DEADLINE_SECONDS`
+  (default 2) on both socket connect and socket read per ADR-0016.
+
 ## Context
 
 The arcade (ADR-0012) is engagement-scoped: when a box is done, its workspace

@@ -46,6 +46,7 @@ ADRs that define structural components rather than Hat personas.
 | [0013](ADR-0013-the-orchestrator.md) | The Orchestrator | Mr. Robot — spawns and supervises Hat robots; the control loop |
 | [0014](ADR-0014-the-memory.md) | The Memory | Cross-engagement recall via aiana; SQLite + Qdrant + Redis |
 | [0015](ADR-0015-the-co-op.md) | The Co-op | *Proposed* — cross-operator memory; cloud + event (join-key) modes; htb-api sibling MCP server upcoming |
+| [0016](ADR-0016-lifecycle-deadlines-constraints.md) | Lifecycle, Deadlines, and Constraint IDs | Cross-cutting — engagement event bus, env-tunable deadlines on external calls, and `C-NNNN-NNN` IDs on ADR-0014 / ADR-0015 |
 
 ## ADR Lifecycle
 
@@ -53,15 +54,20 @@ ADRs that define structural components rather than Hat personas.
 Proposed  →  Accepted  →  ( Deprecated | Superseded )
 ```
 
-ADR-0012, ADR-0013, and ADR-0014 are **Accepted** — built and verified.
-ADR-0014's three backends (aiana/SQLite-FTS5, Qdrant, Redis) were verified
-end-to-end on 2026-05-23 with all three services running; each is
-feature-detected and degrades independently.
+ADR-0012, ADR-0013, ADR-0014, and ADR-0016 are **Accepted** — built and
+verified. ADR-0014's three backends (aiana/SQLite-FTS5, Qdrant, Redis)
+were verified end-to-end on 2026-05-23 with all three services running;
+each is feature-detected and degrades independently. ADR-0016 introduces
+the `EventBus` in `server/events.py`, env-tunable deadlines on every
+external call, and `C-NNNN-NNN` constraint IDs on the prior ADRs.
 
-ADR-0015 (the co-op) is **Proposed**. Its promotion criterion is named in
-the ADR: a wired Qdrant Cloud backend in `server/memory.py`, a scrubber on
-the share paths, an opt-in env flag, a pseudonymous instance handle, and
-a verified write→read round trip from one instance to another.
+ADR-0015 (the co-op) is **Proposed**. Its promotion criteria are named in
+the ADR (and annotated as constraints C-0015-001 … C-0015-010 per the
+ADR-0016 pattern): a wired Qdrant Cloud backend in `server/memory.py`, a
+scrubber on the share paths, an opt-in env flag, a pseudonymous instance
+handle, a verified write→read round trip from one instance to another,
+and a `doctor` command that reliably distinguishes "the co-op is live"
+from "the co-op silently isn't".
 
 Hat ADRs have been finalized. Those whose contract reduces to "operate within
 the engagement's `box_ip` scope using the wired toolset" — and is therefore

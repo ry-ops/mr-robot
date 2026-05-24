@@ -39,6 +39,62 @@ Depends on ADR-0014 (the memory). Reuses its adapter, its embedding pipeline,
 and its `Recollection` shape; adds a remote backend and two write/read sites
 alongside the existing ones.
 
+### Constraints
+
+Per the constraint-ID pattern introduced in ADR-0016. Each ID names a
+contractual statement of this ADR that `doctor` (below) and the
+runtime can assert independently. The cloud-mode set (C-0015-001 …
+C-0015-005), the event-mode set (C-0015-006 … C-0015-008), and the
+doctor set (C-0015-009 … C-0015-010) each promote on their own; the
+co-op as a whole is Accepted when its mode-set and the doctor set
+both hold.
+
+**Cloud mode**
+
+- **C-0015-001** — `server/memory.py` carries a second Qdrant client
+  pointed at Qdrant Cloud, configured from
+  `MR_ROBOT_COOP_QDRANT_URL` / `MR_ROBOT_COOP_QDRANT_API_KEY` /
+  `MR_ROBOT_COOP_QDRANT_COLLECTION`.
+- **C-0015-002** — a single PII-scrubbing function in `server/memory.py`
+  gates the engagement-summary and terminal-finding write paths;
+  scrubber behaviour matches the table in this ADR (drops `box_ip`,
+  flag tokens, credentials, filesystem paths under `engagements/`).
+- **C-0015-003** — `MR_ROBOT_COOP_ENABLED` parses, defaults off, and
+  with it off the co-op is invisible (no reads, no writes, no network
+  traffic to Qdrant Cloud).
+- **C-0015-004** — a pseudonymous instance handle persists in
+  `~/.mr-robot/coop.yaml` and is attached to every co-op write.
+- **C-0015-005** — a write→read round trip between two real instances
+  over a live Qdrant Cloud cluster is verified end-to-end (mirrors the
+  ADR-0014 promotion gate).
+
+**Event mode**
+
+- **C-0015-006** — `mr-robot coop host start` and `mr-robot coop join`
+  exist, with join-key issuance + validation flow and the host's local
+  Qdrant serving participant writes/reads under that key for the
+  session's TTL.
+- **C-0015-007** — the join key is short (four chunks of four base32
+  characters), shared-secret, scoped to a specific event-name +
+  host-instance-id, and time-bounded (24h default TTL, host-extendable).
+- **C-0015-008** — a write→read round trip between two real instances
+  over a third host instance is verified.
+
+**Doctor command**
+
+- **C-0015-009** — `doctor` reports backend connectivity for MCP,
+  Redis, local Qdrant, aiana, cloud-mode Qdrant Cloud, *and* the
+  event-mode host endpoint when a session is joined.
+- **C-0015-010** — `doctor` reliably distinguishes "the co-op is live"
+  from "the co-op silently isn't"; the operator never finds out at
+  first cold-recall.
+
+**Sibling MCP server (non-gating)**
+
+- **C-0015-011** — `htb-api` is named here but graduates via a future
+  ADR. Not gating co-op promotion; included so the doctor design and
+  the architecture diagram stay honest.
+
 ## Context
 
 Mr. Robot's judgment compounds across engagements via the memory layer
