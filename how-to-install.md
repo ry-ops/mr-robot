@@ -16,7 +16,7 @@ any Debian-derived distro with equivalent versions.
 | Python 3.11+ | runtime | ships with Kali |
 | `git` | clone | ships with Kali |
 | `docker` | runs Qdrant | `sudo apt install -y docker.io && sudo systemctl enable --now docker` |
-| `redis-server` | recall cache | `sudo apt install -y redis-server` (run unprivileged — see step 5) |
+| `redis-server` | recall cache | `sudo apt install -y redis-server` (run unprivileged — see step 6) |
 | [Claude Code](https://docs.claude.com/en/docs/claude-code) | drives the MCP server and the agent robots | follow the official installer for your platform |
 
 The `mcp` and `PyYAML` Python packages already ship with Kali's system
@@ -32,7 +32,19 @@ cd ~/Mr.\ Robot
 The directory name has a space on purpose — it matches the project title.
 Quote it in shell commands, or use tab-completion.
 
-## 3. Install Python dependencies
+## 3. Clone the playbooks repo
+
+The playbooks live in a separate private repo so they can evolve
+independently of the server code:
+
+```bash
+git clone https://github.com/ry-ops/playbooks.git ~/playbooks
+```
+
+`server/mr_robot.py` defaults to `~/playbooks` for the playbook directory.
+Override with `MR_ROBOT_PLAYBOOKS` if you want a different path (see step 11).
+
+## 4. Install Python dependencies
 
 ```bash
 pip install --user --break-system-packages -r server/requirements.txt
@@ -45,7 +57,7 @@ orchestrator can spawn Hat robots as actual Claude agents:
 pip install --user --break-system-packages claude-agent-sdk
 ```
 
-## 4. Install aiana (the memory backend)
+## 5. Install aiana (the memory backend)
 
 The cross-engagement memory layer (ADR-0014) is provided by
 [aiana](https://github.com/ry-ops/aiana). It is not on PyPI; install from the
@@ -59,7 +71,7 @@ If you skip this step, `server/memory.py` degrades to a no-op. The
 orchestrator runs unchanged but its judgment does not compound across
 engagements.
 
-## 5. Start Redis (recall cache)
+## 6. Start Redis (recall cache)
 
 The memory layer caches reads in Redis with a generation-counter invalidation
 scheme (ADR-0014). Run it as your user, no root, no system service:
@@ -79,7 +91,7 @@ redis-cli ping   # → PONG
 If Redis is unavailable, recall reads bypass the cache and hit
 SQLite/Qdrant directly. Writes are unaffected.
 
-## 6. Start Qdrant (vector store)
+## 7. Start Qdrant (vector store)
 
 The memory layer's semantic-recall side runs on Qdrant. Easiest is the
 official container:
@@ -101,7 +113,7 @@ curl -fsS http://localhost:6333/readyz   # → "all shards are ready"
 If Qdrant is unavailable, the memory layer **degrades to FTS5-only** —
 brain quality drops; the orchestrator does not halt.
 
-## 7. Register the MCP server with Claude Code
+## 8. Register the MCP server with Claude Code
 
 The `mr-robot` MCP server is the arsenal layer — Claude Code (and the
 AgentRobots the orchestrator spawns) reach the arcade, playbook, and Hat
@@ -120,7 +132,7 @@ registration is bound to the current working directory and `claude mcp list`
 will not show it from anywhere else. Easy mistake; user scope is the right
 default for an MCP server you intend to drive the orchestrator with.
 
-## 8. Verify with a mock run
+## 9. Verify with a mock run
 
 A mock run uses deterministic stand-in robots — no tokens spent, no network,
 exercises the entire control loop:
@@ -134,7 +146,7 @@ unlock new tasks, and the loop converge on terminal condition. The
 engagement workspace lands under `engagements/Lame/` with a live
 `report.md` and the engagement's `arcade.db`.
 
-## 9. First real run
+## 10. First real run
 
 A real run spawns Claude-agent robots, one per Hat, against a HackTheBox
 target you are authorized to test:
@@ -147,7 +159,7 @@ Tokens are billed to whichever Anthropic account Claude Code is signed in
 to. Start small — one or two pool slots — to get a feel for cost before
 scaling up.
 
-## 10. Optional — environment overrides
+## 11. Optional — environment overrides
 
 | Var | Default | Purpose |
 |-----|---------|---------|
@@ -162,9 +174,9 @@ scaling up.
 The co-op (ADR-0015) is **Proposed** and not wired yet —
 `MR_ROBOT_COOP_*` variables are reserved for the eventual implementation.
 
-## 11. Optional — capture Claude Code in aiana
+## 12. Optional — capture Claude Code in aiana
 
-Aiana (step 4) can hold **everything Claude Code does in this project**,
+Aiana (step 5) can hold **everything Claude Code does in this project**,
 not just Mr. Robot's engagement memory. Two independent integrations
 land in the same `~/.aiana/conversations.db`:
 
@@ -177,7 +189,7 @@ land in the same `~/.aiana/conversations.db`:
 Both are optional and additive. Mr. Robot's orchestrator runs identically
 whether they're on or off.
 
-### 11a. Install aiana's Claude Code hooks
+### 12a. Install aiana's Claude Code hooks
 
 ```bash
 python3 -c "from aiana.hooks import install_hooks; install_hooks()"
@@ -201,7 +213,7 @@ To uninstall later:
 python3 -c "from aiana.hooks import uninstall_hooks; uninstall_hooks()"
 ```
 
-### 11b. Run the auto-memory bridge
+### 12b. Run the auto-memory bridge
 
 The bridge is a containerised watcher that mirrors auto-memory files
 into aiana on change. Source lives in `infra/auto-memory-bridge/` and
@@ -270,18 +282,18 @@ filesystem polling at `BRIDGE_POLL_INTERVAL` seconds (default 2).
 ## Troubleshooting
 
 **`claude mcp list` does not show `mr-robot`.**
-Re-run step 7. The path passed to `claude mcp add` must be the absolute path
+Re-run step 8. The path passed to `claude mcp add` must be the absolute path
 to `server/mr_robot.py`, with the space in `Mr. Robot` either escaped or
 quoted.
 
 **Memory layer logs `aiana unavailable` at startup.**
-Step 4 was skipped or `pip install` landed in a different Python. Confirm
+Step 5 was skipped or `pip install` landed in a different Python. Confirm
 with `python3 -c "import aiana; print(aiana.__version__)"`. If that fails,
-re-run step 4 — the `--user --break-system-packages` combination is what
+re-run step 5 — the `--user --break-system-packages` combination is what
 Kali expects.
 
 **`redis-cli ping` returns nothing or `Connection refused`.**
-Step 5 did not start a daemon. Re-run the `redis-server --daemonize yes ...`
+Step 6 did not start a daemon. Re-run the `redis-server --daemonize yes ...`
 line. Confirm with `pgrep -a redis-server`.
 
 **Qdrant container exited.**
@@ -293,17 +305,17 @@ set `MR_ROBOT_QDRANT_URL` to match.
 You probably ran it from a directory other than the project root. Either
 `cd ~/Mr.\ Robot` first, or set `MR_ROBOT_HOME` to the absolute path.
 
-**Hooks installed but the current session isn't captured (step 11a).**
+**Hooks installed but the current session isn't captured (step 12a).**
 Expected. Claude Code reads `settings.json` at session start, so any
 hooks added mid-session apply only from the next session onward.
 Restart Claude Code and re-check.
 
-**`docker compose up` fails with "permission denied … docker.sock" (step 11b).**
+**`docker compose up` fails with "permission denied … docker.sock" (step 12b).**
 The shell user isn't in the `docker` group. Run `sudo usermod -aG docker
 $USER && newgrp docker` (or open a new shell). Confirm with `groups |
 grep docker`.
 
-**Bridge logs `initial sync: invalid=N` (step 11b).**
+**Bridge logs `initial sync: invalid=N` (step 12b).**
 N memory files lack valid YAML frontmatter (the `---\n<yaml>\n---\n<body>`
 shape). Inspect with `head -5 ~/.claude/projects/*/memory/*.md` and either
 fix the frontmatter or delete the malformed file. `MEMORY.md` is the
@@ -315,7 +327,7 @@ index file and is intentionally skipped — it does not count as invalid.
 - Layer 2 (the orchestrator) ready to spawn Hat robots — mock or real.
 - The memory layer wired to aiana, Qdrant, and Redis — each independently
   feature-detected and graceful when missing.
-- If you did step 11: aiana also capturing raw Claude Code transcripts
+- If you did step 12: aiana also capturing raw Claude Code transcripts
   (via hooks) and the auto-memory bridge mirroring distilled notes into
   the same DB.
 
