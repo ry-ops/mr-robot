@@ -2,6 +2,7 @@
 # mcp and PyYAML already ship with Kali's system Python; listed for portability.
 mcp>=1.22
 PyYAML>=6.0
+paramiko>=3.0
 
 # Cross-engagement memory layer (ADR-0014). Not yet on PyPI — install from
 # the repo. If absent, server/memory.py degrades to a no-op and the rest of

