@@ -22,6 +22,7 @@ class TaskTemplate:
     depends_on: dict | None = None
     produces: list = field(default_factory=list)
     tools: list = field(default_factory=list)
+    skills: list = field(default_factory=list)
 
 
 @dataclass
@@ -40,6 +41,7 @@ def _template(d: dict) -> TaskTemplate:
         depends_on=d.get("depends_on"),
         produces=list(d.get("produces") or []),
         tools=list(d.get("tools") or []),
+        skills=list(d.get("skills") or []),
     )
 
 

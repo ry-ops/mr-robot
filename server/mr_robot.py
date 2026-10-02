@@ -81,7 +81,7 @@ def _apply_unlock(eng: dict, finding: dict, pb: Playbook) -> tuple[list, list]:
             eng["id"], tmpl.type, render(tmpl.summary, eng, finding),
             priority=tmpl.priority, hat=tmpl.hat,
             depends_on=tmpl.depends_on, produces=tmpl.produces,
-            created_by=f"rule:{rule_id}",
+            skills=tmpl.skills, created_by=f"rule:{rule_id}",
         )
         if created:
             spawned.append(task)
@@ -112,7 +112,7 @@ def engagement_start(box_name: str, box_ip: str,
             eng["id"], tmpl.type, render(tmpl.summary, eng, None),
             priority=tmpl.priority, hat=tmpl.hat,
             depends_on=tmpl.depends_on, produces=tmpl.produces,
-            created_by="seed",
+            skills=tmpl.skills, created_by="seed",
         )
         if created:
             seeded.append(task)
@@ -210,11 +210,17 @@ def arcade_list_tasks(box_name: str, status: str = "") -> str:
 
 @mcp.tool()
 def arcade_claim_task(box_name: str, task_id: int, robot: str) -> str:
-    """Claim a ready task for a robot — marks it in_progress."""
+    """Claim a ready task for a robot — marks it in_progress. The response
+    includes any skill hints attached to the task; call load_skill for each
+    to load the relevant methodology before starting work."""
     try:
         ARC.require_engagement(box_name)
         t = ARC.claim_task(task_id, robot)
-        return f"+ task #{t['id']} claimed by {robot} — {t['summary']}"
+        lines = [f"+ task #{t['id']} claimed by {robot} — {t['summary']}"]
+        if t.get("skills"):
+            lines.append(f"  skills: {', '.join(t['skills'])}")
+            lines.append("  → call load_skill('<name>') for methodology guidance")
+        return "\n".join(lines)
     except Exception as exc:
         return f"X {exc}"
 
@@ -315,6 +321,64 @@ def memory_record_task_outcome(box_name: str, task_id: int, hat: str,
     return (f"+ task outcome recorded for #{task_id} ({hat}, {result})"
             if MEMORY.available
             else "~ memory layer not provisioned — outcome dropped")
+
+
+# --- tools : skills -----------------------------------------------------
+@mcp.tool()
+def load_skill(skill: str) -> str:
+    """Load a methodology skill file from the playbook library.
+
+    `skill` accepts a partial slug ('ssrf'), a category path
+    ('vulnerabilities/ssrf'), or any unique substring of a skill name.
+    Returns the full markdown content for injection into the agent's planning
+    context. Call before starting work on a task whose skills hint names this
+    skill.
+
+    Example: load_skill('vulnerabilities/ssrf')
+             load_skill('nmap')
+             load_skill('severity_calibration')
+    """
+    skills_dir = PLAYBOOK_DIR / "skills"
+    if not skills_dir.exists():
+        return f"X skills directory not found at {skills_dir}"
+
+    # Exact match: category/name or name.md
+    for candidate in (
+        skills_dir / f"{skill}.md",
+        skills_dir / skill,
+    ):
+        if candidate.exists() and candidate.is_file():
+            return candidate.read_text(encoding="utf-8")
+
+    # Glob search by stem
+    slug = Path(skill).stem
+    matches = list(skills_dir.rglob(f"{slug}.md"))
+    if len(matches) == 1:
+        return matches[0].read_text(encoding="utf-8")
+    if len(matches) > 1:
+        options = sorted(
+            str(m.relative_to(skills_dir).with_suffix("")) for m in matches
+        )
+        return (f"X ambiguous skill '{skill}' — be more specific:\n"
+                + "\n".join(f"  {o}" for o in options))
+
+    # Substring fallback
+    all_skills = sorted(
+        str(p.relative_to(skills_dir).with_suffix(""))
+        for p in skills_dir.rglob("*.md")
+    )
+    substr_matches = [s for s in all_skills if skill.lower() in s.lower()]
+    if len(substr_matches) == 1:
+        return (skills_dir / f"{substr_matches[0]}.md").read_text(
+            encoding="utf-8"
+        )
+    if substr_matches:
+        return (f"X no exact match for '{skill}' — did you mean:\n"
+                + "\n".join(f"  {s}" for s in substr_matches))
+
+    return (f"X skill '{skill}' not found.\n"
+            f"Available ({len(all_skills)}):\n"
+            + "\n".join(f"  {s}" for s in all_skills))
 
 
 # --- tools : recon ------------------------------------------------------

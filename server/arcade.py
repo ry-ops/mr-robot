@@ -46,6 +46,7 @@ CREATE TABLE IF NOT EXISTS task (
     depends_on    TEXT,
     produces      TEXT,
     produced      TEXT,
+    skills        TEXT,
     claimed_by    TEXT,
     created_by    TEXT,
     created_at    REAL NOT NULL,
@@ -91,6 +92,12 @@ class Arcade:
         with self._lock:
             self._conn.executescript(SCHEMA)
             self._conn.commit()
+            # Migration: add skills column if absent (existing DBs pre-dating this field)
+            try:
+                self._conn.execute("ALTER TABLE task ADD COLUMN skills TEXT")
+                self._conn.commit()
+            except sqlite3.OperationalError:
+                pass  # column already exists
 
     # ----- engagements -----------------------------------------------------
     def start_engagement(self, box_name: str, box_ip: str, playbook: str) -> dict:
@@ -184,7 +191,7 @@ class Arcade:
     # ----- tasks -----------------------------------------------------------
     def add_task(self, eng_id: int, ttype: str, summary: str, priority: int = 50,
                  hat: str | None = None, depends_on: dict | None = None,
-                 produces: list | None = None,
+                 produces: list | None = None, skills: list | None = None,
                  created_by: str = "rule") -> tuple[dict | None, bool]:
         """Add a task. Returns (task, created). Identical tasks are skipped."""
         status = "blocked" if depends_on else "ready"
@@ -192,11 +199,12 @@ class Arcade:
             try:
                 cur = self._conn.execute(
                     "INSERT INTO task(engagement_id,type,summary,status,priority,"
-                    "hat,depends_on,produces,produced,created_by,created_at) "
-                    "VALUES(?,?,?,?,?,?,?,?,?,?,?)",
+                    "hat,depends_on,produces,produced,skills,created_by,created_at) "
+                    "VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
                     (eng_id, ttype, summary, status, priority, hat,
                      json.dumps(depends_on) if depends_on else None,
                      json.dumps(produces or []), json.dumps([]),
+                     json.dumps(skills or []),
                      created_by, time.time()),
                 )
                 self._conn.commit()
@@ -234,6 +242,7 @@ class Arcade:
         d["depends_on"] = json.loads(d["depends_on"]) if d["depends_on"] else None
         d["produces"] = json.loads(d["produces"]) if d["produces"] else []
         d["produced"] = json.loads(d["produced"]) if d["produced"] else []
+        d["skills"] = json.loads(d["skills"]) if d.get("skills") else []
         return d
 
     def claim_task(self, tid: int, robot: str) -> dict:
