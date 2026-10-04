@@ -8,6 +8,15 @@ An orchestrated, ADR-driven security framework for Kali — a HackTheBox co-pilo
 that runs multiple "Hat" personas concurrently to compress a weekend of boxes
 into hours. Named for the TV series.
 
+> [!IMPORTANT]
+> **For authorized security testing only.** Mr. Robot is built for lab platforms
+> like HackTheBox and for systems you own or have explicit written permission to
+> test. Every engagement declares a target, and a scope guard
+> ([`server/scope.py`](server/scope.py)) keeps robots inside that target's
+> `box_ip`. Pointing it at anything you are not authorized to test is against the
+> law — and against the point of the project, which is judgment that compounds,
+> not indiscriminate scanning.
+
 ## The idea
 
 Mr. Robot does not hard-code its behavior. Every operating mode is an **ADR**,
