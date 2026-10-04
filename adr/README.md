@@ -47,6 +47,7 @@ ADRs that define structural components rather than Hat personas.
 | [0014](ADR-0014-the-memory.md) | The Memory | Cross-engagement recall via aiana; SQLite + Qdrant + Redis |
 | [0015](ADR-0015-the-co-op.md) | The Co-op | *Proposed* — cross-operator memory; cloud + event (join-key) modes; htb-api sibling MCP server upcoming |
 | [0016](ADR-0016-lifecycle-deadlines-constraints.md) | Lifecycle, Deadlines, and Constraint IDs | Cross-cutting — engagement event bus, env-tunable deadlines on external calls, and `C-NNNN-NNN` IDs on ADR-0014 / ADR-0015 |
+| [0017](ADR-0017-trust-boundaries.md) | Trust Boundaries and Hostile Ingestion | Cross-cutting — the intent guard (`server/sanitize.py`): target output is an untrusted data plane; defang/fence on the finding→prompt and memory write paths |
 
 ## ADR Lifecycle
 
@@ -54,12 +55,16 @@ ADRs that define structural components rather than Hat personas.
 Proposed  →  Accepted  →  ( Deprecated | Superseded )
 ```
 
-ADR-0012, ADR-0013, ADR-0014, and ADR-0016 are **Accepted** — built and
-verified. ADR-0014's three backends (aiana/SQLite-FTS5, Qdrant, Redis)
+ADR-0012, ADR-0013, ADR-0014, ADR-0016, and ADR-0017 are **Accepted** — built
+and verified. ADR-0014's three backends (aiana/SQLite-FTS5, Qdrant, Redis)
 were verified end-to-end on 2026-05-23 with all three services running;
 each is feature-detected and degrades independently. ADR-0016 introduces
 the `EventBus` in `server/events.py`, env-tunable deadlines on every
-external call, and `C-NNNN-NNN` constraint IDs on the prior ADRs.
+external call, and `C-NNNN-NNN` constraint IDs on the prior ADRs. ADR-0017
+adds the intent guard in `server/sanitize.py` — target output is treated as
+an untrusted data plane and defanged/fenced on the finding→prompt and memory
+write paths; its live-agent regression harness (C-0017-005) is the one
+unbuilt promotion criterion.
 
 ADR-0015 (the co-op) is **Proposed**. Its promotion criteria are named in
 the ADR (and annotated as constraints C-0015-001 … C-0015-010 per the
