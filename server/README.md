@@ -12,6 +12,7 @@ The `mr-robot` MCP server (layer 1, "the arsenal") and the orchestrator
 | `playbook.py`     | 1 | loads `~/playbooks/*.yaml`, turns findings into tasks |
 | `hats.py`         | 1 | loads the Hat personas from `../adr/` |
 | `scope.py`        | 1 | the ethics axis — target allowlist, enforced in code |
+| `sanitize.py`     | 1 | the intent guard (ADR-0017) — target output is untrusted; defang + fence |
 | `orchestrator.py` | 2 | Mr. Robot — the heartbeat control loop (ADR-0013) |
 | `robots.py`       | 2 | Robot interface · MockRobot · AgentRobot |
 | `brain.py`        | 2 | heuristic direction judgment (LLM seam marked) |
@@ -68,3 +69,7 @@ assigns robots → repeat, until both flags are captured or the board drains.
 
 - Robot tooling beyond recon — scope-checked web / exploitation wrappers.
 - The LLM brain — `brain.py` has the seam; today's brain is heuristic.
+- The live-agent injection harness (ADR-0017, C-0017-005) — spawn a real
+  AgentRobot against a hostile fixture box N times and assert it never acts
+  on injected intent. `server/tests/test_injection_defense.py` covers the
+  deterministic data path today.

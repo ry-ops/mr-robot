@@ -12,6 +12,8 @@ from pathlib import Path
 
 import yaml
 
+import sanitize
+
 
 @dataclass
 class TaskTemplate:
@@ -63,7 +65,13 @@ _INTERP = re.compile(r"\{([a-zA-Z0-9_.]+)\}")
 
 
 def render(text: str, engagement: dict, finding: dict | None = None) -> str:
-    """Interpolate {box_ip}, {box_name}, {data.<field>} into a template string."""
+    """Interpolate {box_ip}, {box_name}, {data.<field>} into a template string.
+
+    `{data.<field>}` values originate from a posted finding and are therefore
+    attacker-influenceable (ADR-0017): a box controls what its banners/bodies
+    say, and that text reaches the next robot's task prompt through this
+    rendered summary. Those substitutions are defanged on the way in;
+    `{box_ip}` / `{box_name}` come from the engagement and are left as-is."""
     def sub(m: re.Match) -> str:
         key = m.group(1)
         if key == "box_ip":
@@ -71,7 +79,11 @@ def render(text: str, engagement: dict, finding: dict | None = None) -> str:
         if key == "box_name":
             return str(engagement.get("box_name", ""))
         if key.startswith("data.") and finding:
-            return str((finding.get("data") or {}).get(key[5:], m.group(0)))
+            val = (finding.get("data") or {}).get(key[5:])
+            if val is None:
+                return m.group(0)
+            defanged, _ = sanitize.defang(str(val))
+            return defanged
         return m.group(0)
     return _INTERP.sub(sub, text or "")
 

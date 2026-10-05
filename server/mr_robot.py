@@ -27,6 +27,7 @@ except ImportError:
 
 from mcp.server.fastmcp import FastMCP
 
+import sanitize
 import scope
 from arcade import Arcade
 from hats import load_hats
@@ -165,6 +166,13 @@ def arcade_post_finding(box_name: str, type: str, data: dict,
     try:
         eng = ARC.require_engagement(box_name)
         pb = _playbook(eng["playbook"])
+        # Trust boundary (ADR-0017): finding data is derived from the target and
+        # is therefore untrusted. Flag — but do not mutate — any injection-
+        # control markers so the raw evidence is preserved for the operator and
+        # the count travels with the finding for triage and regression.
+        markers = sanitize.count_markers(data)
+        if markers and isinstance(data, dict):
+            data = {**data, "_injection_markers": markers}
         finding, created = ARC.post_finding(
             eng["id"], type, data, confidence,
             source_hat or None, source_robot or None)
@@ -175,6 +183,10 @@ def arcade_post_finding(box_name: str, type: str, data: dict,
                          str(data.get("value", "captured")))
         spawned, unlocked = _apply_unlock(eng, finding, pb)
         lines = [f"+ finding #{finding['id']} posted: {type} {data}"]
+        if markers:
+            lines.append(
+                f"  ! {markers} injection-control marker(s) in finding data — "
+                f"treated as untrusted (ADR-0017); downstream prompts defang/fence it")
         if spawned:
             lines.append(f"  unlocked {len(spawned)} task(s):")
             lines += [_fmt_task(t) for t in spawned]

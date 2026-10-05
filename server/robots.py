@@ -17,6 +17,7 @@ import time
 from pathlib import Path
 
 import mr_robot  # arcade tool functions + ARC (shared engine state)
+import sanitize  # untrusted-ingestion guard (ADR-0017)
 
 try:
     from claude_agent_sdk import (
@@ -182,6 +183,8 @@ class AgentRobot(Robot):
             f"engagement. You embody this Hat; its intent, ethics and "
             f"behavior govern how you work:\n\n"
             f"{adr}\n\n"
+            f"--- TRUST BOUNDARY ---\n"
+            f"{sanitize.BOUNDARY_RULE}\n\n"
             f"--- ENGAGEMENT RULES ---\n"
             f"- You work exactly ONE assigned task, then stop.\n"
             f"- Use only the `mr_robot` MCP tools. recon_portscan enforces "
@@ -209,9 +212,14 @@ class AgentRobot(Robot):
     def _task_prompt(self, task: dict) -> str:
         eng = mr_robot.ARC.get_engagement(self.box_name)
         box_ip = eng["box_ip"] if eng else "?"
+        # The summary is rendered from finding data, which originates from the
+        # target (ADR-0017). Fence it so the agent reads it as data, per the
+        # BOUNDARY_RULE in its system prompt — the task type stays outside the
+        # fence as it is framework-controlled, not box-controlled.
+        summary = sanitize.fence(str(task["summary"]))
         return (
             f"ENGAGEMENT: {self.box_name}   (scope: {box_ip})\n"
-            f"TASK #{task['id']} [{task['type']}]: {task['summary']}\n\n"
+            f"TASK #{task['id']} [{task['type']}]:\n{summary}\n\n"
             f"This task is already claimed for you. Work it now: use the "
             f"mr_robot tools, post what you find to the arcade, and call "
             f"arcade_complete_task on task {task['id']} when done. Pass "

@@ -26,6 +26,8 @@ from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 
+import sanitize  # untrusted-ingestion guard (ADR-0017)
+
 try:
     from aiana.config import load_config as _aiana_load_config
     from aiana.models import Message, MessageType, Session
@@ -360,10 +362,21 @@ class Memory:
                 msg_type: "MessageType", extra_meta: dict | None = None,
                 session_summary: str | None = None) -> None:
         """Create a session, append one message, end the session. One
-        atomic write from the caller's perspective."""
+        atomic write from the caller's perspective.
+
+        This is the single write chokepoint for both memory tiers, so it is
+        where cross-engagement content is scrubbed (ADR-0017). `content` is
+        derived from finding data (target-controlled) and is recalled as plain
+        text into future prompts and shared through the co-op (ADR-0015); it is
+        defanged here so injected instructions cannot ride memory from one
+        engagement — or one operator — into another. The neutralized-marker
+        count is recorded in metadata for auditability."""
         now = datetime.now(timezone.utc)
         sid = f"mrrobot-{kind}-{uuid.uuid4()}"
+        content, _inj = sanitize.defang(content)
         meta = {"kind": kind, "box": box}
+        if _inj:
+            meta["injection_markers"] = _inj
         if extra_meta:
             meta.update(extra_meta)
         try:
